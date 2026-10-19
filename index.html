@@ -186,10 +186,10 @@
                         <div class="adoption-hero-badge">🐾 เริ่มต้นครอบครัวใหม่</div>
                         <h3 class="adoption-hero-title">ยังไม่มีน้องแมวประจำบ้าน 🐱</h3>
                         <p class="adoption-hero-desc">
-                            ยินดีต้อนรับ Nether 👨‍💻 & Pooja 🌸! ทั้งสองมีแต้มเริ่มต้นคนละ <strong>300 แต้ม ⭐</strong> มาร่วมเลือกรับเลี้ยงน้องแมวตัวแรกในสไตล์ Pixar 3D (มีให้เลือก 10 สายพันธุ์) และตั้งชื่อให้เจ้านายตัวน้อยกันเถอะ
+                            ยินดีต้อนรับ Nether 👨‍💻 & Pooja 🌸! ทั้งสองมีแต้มเริ่มต้นคนละ <strong>300 แต้ม ⭐</strong> มาร่วมสุ่มรับเลี้ยงลูกแมวน้อยปริศนาที่ไม่รู้ว่าเป็นสายพันธุ์อะไร เมื่อร่วมกันดูแลจนครบ <strong>2 เดือน (60 วัน)</strong> จะเฉลยสายพันธุ์ และเมื่อครบ <strong>6 เดือน (180 วัน)</strong> สามารถร่วมกันเก็บเข้าคอลเล็กชันเพื่อเลี้ยงตัวใหม่ได้!
                         </p>
                         <button class="primary-btn pulse-glow-btn" id="openAdoptionModalBtn">
-                            <span>🐾 พิธีเลือกรับเลี้ยงน้องแมว (10 สายพันธุ์)</span>
+                            <span>🎁 สุ่มรับเลี้ยงลูกแมวน้อยปริศนา</span>
                             <i data-lucide="sparkles"></i>
                         </button>
                     </div>
@@ -267,8 +267,20 @@
                     </div>
                 </div>
 
-                <!-- Sub-Actions Bar -->
+                <!-- Sub-Actions Bar (5 Functional Companion Tools, No Debug Button) -->
                 <div class="garden-sub-actions" id="gardenSubActionsBar">
+                    <button class="pill-action-btn play-cat-highlight" id="openCatPlayBtn">
+                        <i data-lucide="gamepad-2"></i>
+                        <span>เล่นกับน้องแมว 🧶</span>
+                    </button>
+                    <button class="pill-action-btn" id="openMonthlyBondReportBtn">
+                        <i data-lucide="trophy"></i>
+                        <span>รายงานความผูกพัน 🏆</span>
+                    </button>
+                    <button class="pill-action-btn" id="openCatCollectionBtn">
+                        <i data-lucide="library"></i>
+                        <span>คอลเล็กชันแมว & ผสมพันธุ์ 🏛️</span>
+                    </button>
                     <button class="pill-action-btn" id="openTreeCatalogBtn">
                         <i data-lucide="paw-print"></i>
                         <span>สายพันธุ์แมว (10 ชนิด)</span>
@@ -276,10 +288,6 @@
                     <button class="pill-action-btn" id="openHarvestBtn">
                         <i data-lucide="sparkles"></i>
                         <span id="harvestBtnLabel">รับลูกแก้วให้โชค</span>
-                    </button>
-                    <button class="pill-action-btn" id="openYearArchiveBtn">
-                        <i data-lucide="archive"></i>
-                        <span>คอลเลกชันประจำปี</span>
                     </button>
                 </div>
             </section>
@@ -345,10 +353,17 @@
                     <!-- Populated dynamically -->
                 </div>
 
-                <button class="add-snack-btn" id="openAddSnackBtn">
-                    <i data-lucide="plus-circle"></i>
-                    <span>เพิ่มของว่าง / ขนมจุกจิก / มื้อย่อย</span>
-                </button>
+                <!-- Responsive Meal Actions Controls -->
+                <div class="meals-action-controls">
+                    <button type="button" class="meal-action-primary-btn" id="openAddSnackBtn">
+                        <i data-lucide="plus-circle"></i>
+                        <span>เพิ่มมื้อย่อย / ของว่าง 🧋 (+10 แต้ม)</span>
+                    </button>
+                    <button type="button" class="meal-action-secondary-btn btn-view-meal-history" id="viewMealHistoryBtn">
+                        <i data-lucide="history"></i>
+                        <span>ดูคลังประวัติมื้ออาหารทั้งหมด 📜</span>
+                    </button>
+                </div>
             </section>
 
             <!-- ================================================================
@@ -444,23 +459,28 @@
                  VIEW 6: Couple Chat (Sunday Midnight Auto-Purge)
                  ================================================================ -->
             <section class="view-section" id="view-chat">
-                <div class="chat-quota-banner">
-                    <span>💬 แชทจะถูกลบอัตโนมัติทุกเที่ยงคืนวันอาทิตย์ เพื่อประหยัดพื้นที่</span>
-                    <span id="chatCountText" style="font-size: 10.5px; opacity: 0.85;">0 ข้อความ</span>
+                <div class="chat-quota-banner" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span>💬 แชทและประวัติดูแลจะถูกลบทุกเที่ยงคืนวันอาทิตย์</span>
+                        <span id="chatCountText" style="font-size: 10.5px; opacity: 0.85; margin-left: 6px;">0 ข้อความ</span>
+                    </div>
+                    <button id="clearChatAndCareBtn" class="pill-action-btn" style="padding: 3px 8px; font-size: 10px; background: rgba(255,255,255,0.25); color: inherit; border: 1px solid rgba(255,255,255,0.4);" title="ลบข้อความแชทและประวัติดูแลทั้งหมดทันที">
+                        🗑️ ล้างทันที
+                    </button>
                 </div>
 
                 <div class="chat-messages-container" id="chatMessagesContainer">
                     <!-- Messages populated dynamically -->
                 </div>
 
-                <div style="display: flex; gap: 6px; margin-bottom: 8px; overflow-x: auto; padding-bottom: 4px;">
-                    <button class="pill-action-btn quick-sticker" data-text="คิดถึงที่สุดในโลกเลยยย 💕">💕 คิดถึงนะ</button>
-                    <button class="pill-action-btn quick-sticker" data-text="กินข้าวหรือยัง เป็นห่วงน้า 🍱">🍱 กินข้าวยัง</button>
-                    <button class="pill-action-btn quick-sticker" data-text="ส่งพลังใจให้คนเก่ง ฮึบๆ! ✌️">✌️ สู้ๆ นะ</button>
-                    <button class="pill-action-btn quick-sticker" data-text="ฝันดีนะที่รัก เจอกันในฝัน 🌙">🌙 ฝันดีนะ</button>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+                    <button type="button" class="pill-action-btn quick-sticker" data-text="คิดถึงที่สุดในโลกเลยยย 💕" style="flex: 1 1 calc(50% - 6px); font-size: 11px;">💕 คิดถึงนะ</button>
+                    <button type="button" class="pill-action-btn quick-sticker" data-text="กินข้าวหรือยัง เป็นห่วงน้า 🍱" style="flex: 1 1 calc(50% - 6px); font-size: 11px;">🍱 กินข้าวยัง</button>
+                    <button type="button" class="pill-action-btn quick-sticker" data-text="ส่งพลังใจให้คนเก่ง ฮึบๆ! ✌️" style="flex: 1 1 calc(50% - 6px); font-size: 11px;">✌️ สู้ๆ นะ</button>
+                    <button type="button" class="pill-action-btn quick-sticker" data-text="ฝันดีนะที่รัก เจอกันในฝัน 🌙" style="flex: 1 1 calc(50% - 6px); font-size: 11px;">🌙 ฝันดีนะ</button>
                 </div>
 
-                <form class="chat-input-bar" id="chatSendForm">
+                <form class="chat-input-bar" id="chatSendForm" onsubmit="event.preventDefault();">
                     <input type="text" class="chat-input-field" id="chatMessageInput" placeholder="พิมพ์ข้อความถึงแฟน..." autocomplete="off">
                     <button type="submit" class="chat-send-btn" id="chatSendBtn">
                         <i data-lucide="send"></i>
@@ -534,42 +554,49 @@
         <nav class="bottom-nav-bar" id="bottomNavBar" style="display: none;">
             <button class="nav-item-btn active-nav" data-target="view-garden" id="navBtnGarden">
                 <i data-lucide="cat"></i>
+                <span class="nav-badge-count hidden" id="badgeNavGarden"></span>
                 <span>บ้านแมว</span>
             </button>
 
             <button class="nav-item-btn" data-target="view-quests" id="navBtnQuests">
                 <i data-lucide="award"></i>
-                <span class="nav-badge-dot" id="questNavDot"></span>
+                <span class="nav-badge-count hidden" id="badgeNavQuests"></span>
                 <span>ภารกิจ</span>
             </button>
 
             <button class="nav-item-btn" data-target="view-meals" id="navBtnMeals">
                 <i data-lucide="utensils"></i>
+                <span class="nav-badge-count hidden" id="badgeNavMeals"></span>
                 <span>มื้ออาหาร</span>
             </button>
 
             <button class="nav-item-btn" data-target="view-calendar" id="navBtnCalendar">
                 <i data-lucide="calendar-heart"></i>
+                <span class="nav-badge-count hidden" id="badgeNavCalendar"></span>
                 <span>ปฏิทินใจ</span>
             </button>
 
             <button class="nav-item-btn" data-target="view-notes" id="navBtnNotes">
                 <i data-lucide="notebook-pen"></i>
+                <span class="nav-badge-count hidden" id="badgeNavNotes"></span>
                 <span>โน้ตคู่</span>
             </button>
 
             <button class="nav-item-btn" data-target="view-chat" id="navBtnChat">
                 <i data-lucide="message-circle-heart"></i>
+                <span class="nav-badge-count hidden" id="badgeNavChat"></span>
                 <span>แชท</span>
             </button>
 
             <button class="nav-item-btn" data-target="view-quiz" id="navBtnQuiz">
                 <i data-lucide="help-circle"></i>
+                <span class="nav-badge-count hidden" id="badgeNavQuiz"></span>
                 <span>ควิซ</span>
             </button>
 
             <button class="nav-item-btn" data-target="view-postits" id="navBtnPostits">
                 <i data-lucide="sticky-note"></i>
+                <span class="nav-badge-count hidden" id="badgeNavPostits"></span>
                 <span>ความทรงจำ</span>
             </button>
         </nav>
@@ -636,34 +663,28 @@
         </div>
     </div>
 
-    <!-- Modal: First Cat Adoption Ceremony -->
+    <!-- Modal: First Cat Adoption Ceremony (Mystery Random Kitten) -->
     <div class="custom-modal-backdrop" id="modalCatAdoption">
         <div class="modal-dialog-box" style="max-width: 440px;">
             <div class="modal-header-row">
-                <h3 class="modal-title">🐾 พิธีรับเลี้ยงน้องแมวตัวแรก</h3>
+                <h3 class="modal-title">🎁 พิธีสุ่มรับเลี้ยงลูกแมวปริศนา</h3>
                 <button class="modal-close-btn" data-close="modalCatAdoption"><i data-lucide="x"></i></button>
             </div>
-            <div style="background: linear-gradient(135deg, #FFF3EB, #FFE4EC); padding: 12px; border-radius: var(--radius-md); margin-bottom: 12px; font-size: 12px; color: var(--text-primary); border: 1px solid rgba(255, 107, 74, 0.15);">
-                <p style="margin: 0; font-weight: 800; color: var(--accent-coral);">ยินดีต้อนรับ Nether 👨‍💻 & Pooja 🌸 สู่บ้าน SoulGarden!</p>
-                <p style="margin: 4px 0 0; font-size: 11.5px; color: var(--text-secondary); line-height: 1.5;">
-                    แต้มตั้งต้นคนละ <strong>300 แต้ม ⭐</strong> พร้อมแล้ว เลือกสายพันธุ์น้องแมว (สไตล์ Pixar 3D) และตั้งชื่อเจ้านายประจำบ้านร่วมกันได้เลย
+            <div style="background: linear-gradient(135deg, #FFF3EB, #FFE4EC); padding: 14px; border-radius: var(--radius-md); margin-bottom: 14px; font-size: 12px; color: var(--text-primary); border: 1px solid rgba(255, 107, 74, 0.15); text-align: center;">
+                <div style="font-size: 42px; margin-bottom: 6px;">🎁🐾❓</div>
+                <p style="margin: 0; font-weight: 800; font-size: 14px; color: var(--accent-coral);">กล่องลูกแมวปริศนา (Mystery Kitten)</p>
+                <p style="margin: 6px 0 0; font-size: 11.5px; color: var(--text-secondary); line-height: 1.5;">
+                    ระบบจะสุ่มสายพันธุ์แมว 1 ใน 10 สายพันธุ์อย่างเป็นความลับ! คุณทั้งสองจะยังไม่รู้ว่าเป็นพันธุ์อะไรจนกว่าจะช่วยกันดูแลจนครบ <strong>2 เดือน (60 วัน)</strong> ถึงจะเฉลย และเมื่อครบ <strong>6 เดือน (180 วัน)</strong> จะสามารถร่วมใจกันเก็บเข้าคอลเล็กชันและเลี้ยงตัวใหม่ได้!
                 </p>
             </div>
 
-            <div class="form-group" style="margin-bottom: 12px;">
-                <label class="form-label" style="font-weight: 800;">1. เลือกสายพันธุ์แมว (10 สายพันธุ์ Pixar 3D)</label>
-                <div class="cat-breed-grid" id="adoptBreedGrid">
-                    <!-- Populated dynamically from CAT_BREEDS -->
-                </div>
-            </div>
-
             <div class="form-group" style="margin-bottom: 14px;">
-                <label class="form-label" style="font-weight: 800;">2. ตั้งชื่อน้องแมวของเรา</label>
-                <input type="text" class="form-input" id="adoptCatNameInput" placeholder="เช่น เจ้าส้มซ่า, นำโชค, มอคค่า" required>
+                <label class="form-label" style="font-weight: 800;">ตั้งชื่อลูกแมวน้อยของเรา</label>
+                <input type="text" class="form-input" id="adoptCatNameInput" placeholder="เช่น เจ้าเหมียวปริศนา, ลัคกี้, โมจิ" required>
             </div>
 
             <button class="primary-btn pulse-glow-btn" id="confirmAdoptCatBtn">
-                <span>🎉 ยืนยันรับเลี้ยงและเริ่มต้นดูแลร่วมกัน</span>
+                <span>🎁 ยืนยันสุ่มรับเลี้ยงลูกแมวปริศนา</span>
             </button>
         </div>
     </div>
@@ -673,12 +694,9 @@
         <div class="modal-dialog-box" style="max-width: 440px;">
             <div class="modal-header-row">
                 <h3 class="modal-title">🐱 สายพันธุ์แมวความรัก (10 ชนิด)</h3>
-                <button class="modal-close-btn" data-close="modalTreeCatalog"><i data-lucide="x"></i></button>
+                <button type="button" class="modal-close-btn" data-close="modalTreeCatalog"><i data-lucide="x"></i></button>
             </div>
-            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 14px;">
-                เลือกสายพันธุ์แมวที่ต้องการเลี้ยงร่วมกัน แต่ละสายพันธุ์มีสี Post-it และนิสัยเฉพาะตัว
-            </p>
-            <div style="display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto;" id="catCatalogList">
+            <div style="display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto;" id="catCatalogList">
                 <!-- Dynamically populated from CAT_BREEDS -->
             </div>
         </div>
@@ -689,7 +707,7 @@
         <div class="modal-dialog-box">
             <div class="modal-header-row">
                 <h3 class="modal-title">🔮 เก็บเกี่ยวลูกแก้วให้โชค (เลข 00-99)</h3>
-                <button class="modal-close-btn" data-close="modalHarvest"><i data-lucide="x"></i></button>
+                <button type="button" class="modal-close-btn" data-close="modalHarvest"><i data-lucide="x"></i></button>
             </div>
             <div style="text-align: center; margin-bottom: 14px;">
                 <div style="font-size: 48px; margin-bottom: 6px;">🔔✨</div>
@@ -698,7 +716,7 @@
                     เขียนคำอวยพรหรือความในใจถึงกัน ระบบจะสุ่มเลขนำโชค 00-99 ให้บน Post-it สีประจำสายพันธุ์แมวโดยอัตโนมัติ
                 </p>
             </div>
-            <form id="harvestForm">
+            <form id="harvestForm" onsubmit="event.preventDefault();">
                 <div class="form-group">
                     <label class="form-label">หัวข้อความทรงจำ / คำอวยพร</label>
                     <input type="text" class="form-input" id="harvestTitleInput" placeholder="เช่น ขอให้ความรักเราโชคดีตลอดไปนะ" required>
@@ -710,7 +728,7 @@
                 <div style="background: var(--bg-subtle); padding: 10px; border-radius: var(--radius-sm); font-size: 11.5px; color: var(--text-secondary); margin-bottom: 14px;">
                     📌 สี Post-it จะถูกกำหนดตามสายพันธุ์แมว (<span id="harvestBreedColorName">สีประจำสายพันธุ์</span>) และสุ่มเลข 00-99 ให้อัตโนมัติ
                 </div>
-                <button type="submit" class="primary-btn">
+                <button type="submit" class="primary-btn" id="confirmHarvestBtn">
                     แปะลงกำแพงพร้อมสุ่มเลขให้โชค (+100 แต้ม)
                 </button>
             </form>
@@ -722,7 +740,7 @@
         <div class="modal-dialog-box">
             <div class="modal-header-row">
                 <h3 class="modal-title">🏆 คอลเลกชันประจำปี</h3>
-                <button class="modal-close-btn" data-close="modalYearArchive"><i data-lucide="x"></i></button>
+                <button type="button" class="modal-close-btn" data-close="modalYearArchive"><i data-lucide="x"></i></button>
             </div>
             <div id="yearCollectionContainer" style="display: flex; flex-direction: column; gap: 10px;">
                 <!-- Populated via JS -->
@@ -735,9 +753,9 @@
         <div class="modal-dialog-box">
             <div class="modal-header-row">
                 <h3 class="modal-title" id="mealModalTitle">อัปเดตมื้ออาหาร</h3>
-                <button class="modal-close-btn" data-close="modalEditMeal"><i data-lucide="x"></i></button>
+                <button type="button" class="modal-close-btn" data-close="modalEditMeal"><i data-lucide="x"></i></button>
             </div>
-            <form id="mealEditForm">
+            <form id="mealEditForm" onsubmit="event.preventDefault();">
                 <input type="hidden" id="mealEditType">
                 <div class="form-group">
                     <label class="form-label">ทานอะไรไปบ้างเอ่ย?</label>
@@ -747,7 +765,7 @@
                     <label class="form-label">เวลาที่ทาน</label>
                     <input type="time" class="form-input" id="mealInputTime" required>
                 </div>
-                <button type="submit" class="primary-btn">บันทึกมื้ออาหาร</button>
+                <button type="submit" class="primary-btn" id="saveMealEditBtn">บันทึกมื้ออาหาร</button>
             </form>
         </div>
     </div>
@@ -757,9 +775,9 @@
         <div class="modal-dialog-box">
             <div class="modal-header-row">
                 <h3 class="modal-title" id="noteModalHeaderTitle">📝 บันทึกเตือนกัน</h3>
-                <button class="modal-close-btn" data-close="modalNewNote"><i data-lucide="x"></i></button>
+                <button type="button" class="modal-close-btn" data-close="modalNewNote"><i data-lucide="x"></i></button>
             </div>
-            <form id="newNoteForm">
+            <form id="newNoteForm" onsubmit="event.preventDefault();">
                 <input type="hidden" id="editNoteId" value="">
                 <div class="form-group">
                     <label class="form-label">หัวข้อบันทึก</label>
@@ -782,7 +800,7 @@
                     <label class="form-label">ตั้งเวลาแจ้งเตือน (ตัวเลือก)</label>
                     <input type="datetime-local" class="form-input" id="noteRemindTime">
                 </div>
-                <button type="submit" class="primary-btn" id="saveNoteBtn">บันทึกโน้ต</button>
+                <button type="button" class="primary-btn" id="saveNoteBtn">บันทึกโน้ต</button>
             </form>
         </div>
     </div>
@@ -792,9 +810,9 @@
         <div class="modal-dialog-box">
             <div class="modal-header-row">
                 <h3 class="modal-title">🎯 ตั้งคำถามประจำวัน (วันละ 1 ข้อ)</h3>
-                <button class="modal-close-btn" data-close="modalNewQuiz"><i data-lucide="x"></i></button>
+                <button type="button" class="modal-close-btn" data-close="modalNewQuiz"><i data-lucide="x"></i></button>
             </div>
-            <form id="newQuizForm">
+            <form id="newQuizForm" onsubmit="event.preventDefault();">
                 <div class="form-group">
                     <label class="form-label">คำถามความรู้ใจสำหรับวันนี้</label>
                     <input type="text" class="form-input" id="quizQuestionInput" placeholder="เช่น วันนี้เค้าใส่เสื้อสีอะไร?" required>
@@ -824,7 +842,7 @@
                         <option value="3">ตัวเลือกที่ 4</option>
                     </select>
                 </div>
-                <button type="submit" class="primary-btn">ส่งคำถามวันนี้ให้แฟน (+50 แต้ม)</button>
+                <button type="submit" class="primary-btn" id="submitQuizBtn">ส่งคำถามวันนี้ให้แฟน (+50 แต้ม)</button>
             </form>
         </div>
     </div>
@@ -855,6 +873,24 @@
                 <h3 class="modal-title">⚙️ ตั้งค่าระบบ & Cloud Firebase</h3>
                 <button class="modal-close-btn" data-close="modalSettings"><i data-lucide="x"></i></button>
             </div>
+            <!-- User Profile Rename Section (Supports renaming both partners) -->
+            <div style="background: linear-gradient(135deg, #F3E5F5, #EDE7F6); border-radius: var(--radius-md); padding: 12px; margin-bottom: 14px; border: 1px solid #D1C4E9;">
+                <label class="form-label" style="font-weight: 800; color: #4A148C; margin-bottom: 8px;">👥 เปลี่ยนชื่อคู่รัก (Display Names ทั้ง 2 ฝ่าย)</label>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div>
+                        <span style="font-size: 11px; font-weight: 700; color: #5E35B1;">ชื่อ Nether 👨‍💻:</span>
+                        <input type="text" class="form-input" id="renameNetherInput" placeholder="ชื่อของ Nether" style="background: #fff; margin-top: 3px;">
+                    </div>
+                    <div>
+                        <span style="font-size: 11px; font-weight: 700; color: #D81B60;">ชื่อ Pooja 🌸:</span>
+                        <input type="text" class="form-input" id="renamePoojaInput" placeholder="ชื่อของ Pooja" style="background: #fff; margin-top: 3px;">
+                    </div>
+                    <button type="button" class="primary-btn" id="saveBothUserNamesBtn" style="background: #6A1B9A; padding: 9px; font-size: 12.5px; width: 100%;">
+                        💾 บันทึกชื่อทั้ง 2 ฝ่าย
+                    </button>
+                </div>
+            </div>
+
             <div style="background: var(--bg-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 14px; font-size: 12px; color: var(--text-secondary);">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
                     <span style="font-weight: 700;">สถานะ Cloud Firestore:</span>
@@ -865,14 +901,7 @@
 
             <div class="form-group">
                 <label class="form-label">Firebase Config JSON</label>
-                <textarea class="form-input" id="firebaseConfigInput" rows="6" placeholder='{"apiKey": "...", "projectId": "...", ...}'>{
-  "apiKey": "AIzaSyDOjP5SuMK5kY_cnCmiS72f1rc4KxzMooI",
-  "authDomain": "soulgarden-85cab.firebaseapp.com",
-  "projectId": "soulgarden-85cab",
-  "storageBucket": "soulgarden-85cab.firebasestorage.app",
-  "messagingSenderId": "583313418787",
-  "appId": "1:583313418787:web:d7735eb91aa7dae58f5f96"
-}</textarea>
+                <textarea class="form-input" id="firebaseConfigInput" rows="6" placeholder='{"apiKey": "...", "projectId": "...", ...}'></textarea>
             </div>
 
             <button class="primary-btn" id="saveFirebaseConfigBtn" style="margin-bottom: 14px;">บันทึก & เชื่อมต่อ Firestore</button>
@@ -1032,6 +1061,154 @@
                     <button type="button" class="primary-btn" id="manualNextBtn" style="padding: 7px 18px; font-size: 13px;">ถัดไป</button>
                     <button type="button" class="primary-btn pulse-glow-btn" id="manualFinishBtn" style="padding: 7px 18px; font-size: 13px; display: none;">เริ่มดูแลน้องแมวเลย! 🐾</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Play with Cat (Accumulate Time & Points) -->
+    <div class="custom-modal-backdrop" id="modalCatPlay">
+        <div class="modal-dialog-box" style="max-width: 440px;">
+            <div class="modal-header-row">
+                <h3 class="modal-title">🧶 เล่นกับน้องแมว (สะสมแต้มแลกของ)</h3>
+                <button class="modal-close-btn" data-close="modalCatPlay"><i data-lucide="x"></i></button>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #FFF8E1, #FFECB3); padding: 12px; border-radius: var(--radius-md); margin-bottom: 12px; font-size: 12px; border: 1px solid #FFE082;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-weight: 700;">⏱️ เวลาเล่นสะสมของคุณ:</span>
+                    <span id="userPlayTimeDisplay" style="font-weight: 800; color: #E65100;">0 นาที 0 วินาที</span>
+                </div>
+                <div style="font-size: 11px; color: #5D4037;">
+                    เล่นกับน้องแมวช่วยเพิ่มความผูกพันและได้รับแต้มสะสมเพื่อนำไปแลกของเล่นและอาหารในร้านค้า!
+                </div>
+            </div>
+
+            <!-- Toy Selection Grid -->
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label class="form-label" style="font-weight: 800;">เลือกของเล่นหรือเล่นด้วยมือ</label>
+                <div class="toy-select-grid" id="playToySelectGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Play Interactive Stage -->
+            <div class="play-session-stage" style="background: var(--bg-subtle); border: 2px dashed #FFB74D; border-radius: var(--radius-md); padding: 16px; text-align: center; margin-bottom: 14px;">
+                <div id="playStageAnimation" style="font-size: 42px; margin-bottom: 6px; user-select: none;">🐾✨</div>
+                <div id="playSessionTimer" style="font-size: 24px; font-weight: 800; color: #E65100; margin-bottom: 4px;">00:00</div>
+                <p id="playStageStatus" style="font-size: 12px; color: var(--text-secondary); margin: 0;">
+                    กดปุ่มเริ่มเล่นเพื่อหยอกล้อกับเจ้านาย
+                </p>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+                <button class="primary-btn" id="startPlaySessionBtn" style="background: #FF6B4A;">
+                    <span>🎮 เริ่มเล่นกับน้องแมว</span>
+                </button>
+                <button class="secondary-btn" id="stopPlaySessionBtn" style="display: none; background: #4CAF50; color: #fff; border-color: #388E3C;">
+                    <span>✅ บันทึกเวลา & รับแต้ม (+30 แต้ม)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Monthly Bonding Report (1-Month Comprehensive Analysis) -->
+    <div class="custom-modal-backdrop" id="modalMonthlyBondReport">
+        <div class="modal-dialog-box" style="max-width: 480px;">
+            <div class="modal-header-row">
+                <h3 class="modal-title">🏆 รายงานความผูกพันประจำเดือน</h3>
+                <button class="modal-close-btn" data-close="modalMonthlyBondReport"><i data-lucide="x"></i></button>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #FFF9C4, #FFF176); padding: 12px 14px; border-radius: var(--radius-md); margin-bottom: 14px; border: 1px solid #FBC02D; text-align: center;">
+                <div style="font-size: 32px; margin-bottom: 2px;">👑🐾💕</div>
+                <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: #F57F17;" id="monthlyWinnerName">ผู้ที่ผูกพันกับน้องแมวมากที่สุดในเดือนนี้</h4>
+                <p style="margin: 4px 0 0; font-size: 11.5px; color: #5D4037;" id="monthlyWinnerSubtext">
+                    คำนวณจากคะแนนการให้อาหาร, ขนมแมวเลีย, ของเล่น, การฉีดวัคซีน, ดูแลสุขภาพ และเวลาเล่น
+                </p>
+            </div>
+
+            <div id="monthlyScoreBreakdownTable" style="margin-bottom: 14px;">
+                <!-- Populated dynamically via JS -->
+            </div>
+
+            <button class="primary-btn" data-close="modalMonthlyBondReport">
+                ปิดรายงานความผูกพัน
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal: Cat Collection & Breeding Lab -->
+    <div class="custom-modal-backdrop" id="modalCatCollection">
+        <div class="modal-dialog-box" style="max-width: 480px;">
+            <div class="modal-header-row">
+                <h3 class="modal-title">🏛️ คอลเล็กชันแมว & ห้องผสมพันธุ์</h3>
+                <button class="modal-close-btn" data-close="modalCatCollection"><i data-lucide="x"></i></button>
+            </div>
+
+            <!-- Current Cat Status Card -->
+            <div style="background: linear-gradient(135deg, #EDE7F6, #D1C4E9); padding: 12px; border-radius: var(--radius-md); margin-bottom: 14px; border: 1px solid #B39DDB;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-weight: 800; color: #4A148C; font-size: 13px;">🐾 น้องแมวตัวปัจจุบัน</span>
+                    <span id="currentCatAgeBadge" style="background: #fff; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; color: #6A1B9A;">อายุ 1 วัน</span>
+                </div>
+                <div style="font-size: 12px; color: #311B92; line-height: 1.45;" id="currentCatRetireEligibilityNotice">
+                    เมื่อเลี้ยงครบ <strong>6 เดือน (180 วัน)</strong> จะสามารถเก็บเข้าคอลเล็กชันและเลี้ยงตัวใหม่ได้ (ต้องได้รับการยินยอมจากทั้ง 2 ฝ่าย)
+                </div>
+                <div id="retireCatActionBox" style="margin-top: 10px;">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Cat Collection Section -->
+            <div class="section-header" style="margin-bottom: 8px;">
+                <h4 style="font-size: 13px; font-weight: 800; color: var(--text-primary); margin: 0;">คลังแมวในคอลเล็กชัน</h4>
+                <span id="collectionCountBadge" style="font-size: 11px; color: var(--text-secondary);">0 ตัว</span>
+            </div>
+            <div id="retiredCatsGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 160px; overflow-y: auto; margin-bottom: 14px;">
+                <!-- Populated dynamically -->
+            </div>
+
+            <!-- Cross-Breeding Lab Section -->
+            <div style="background: linear-gradient(135deg, #FCE4EC, #F8BBD0); padding: 12px; border-radius: var(--radius-md); border: 1px solid #F48FB1;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="font-weight: 800; color: #880E4F; font-size: 13px;">🧬 ห้องผสมพันธุ์แมว (Breeding Lab)</span>
+                    <span style="font-size: 10.5px; background: #fff; color: #C2185B; padding: 2px 6px; border-radius: 8px; font-weight: 700;">สุ่มไฮบริด</span>
+                </div>
+                <p style="font-size: 11px; color: #4A148C; margin: 0 0 8px; line-height: 1.4;">
+                    เลือกแมว 2 ตัวจากคอลเล็กชันเพื่อผสมพันธุ์และสร้างสายพันธุ์ผสมแบบสุ่ม (Hybrid Cat) เพิ่มในคอลเล็กชัน
+                </p>
+                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                    <select class="form-input" id="breedParent1Select" style="font-size: 11.5px; padding: 6px;">
+                        <option value="">-- เลือกพ่อพันธุ์ --</option>
+                    </select>
+                    <select class="form-input" id="breedParent2Select" style="font-size: 11.5px; padding: 6px;">
+                        <option value="">-- เลือกแม่พันธุ์ --</option>
+                    </select>
+                </div>
+                <button class="primary-btn" id="startCrossBreedBtn" style="background: #C2185B; padding: 8px; font-size: 12px; width: 100%;">
+                    <span>🐾 ผสมพันธุ์สุ่มลูกแมวไฮบริด (+100 แต้ม)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Meal History Archive -->
+    <div class="custom-modal-backdrop" id="modalMealHistory">
+        <div class="modal-dialog-box" style="max-width: 440px;">
+            <div class="modal-header-row">
+                <h3 class="modal-title">📖 คลังประวัติมื้ออาหารที่บันทึกไว้</h3>
+                <button class="modal-close-btn" data-close="modalMealHistory"><i data-lucide="x"></i></button>
+            </div>
+            
+            <!-- Partner Filter Tabs -->
+            <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+                <button class="partner-tab-btn active-tab meal-history-filter-btn" data-partner="all">ทั้งหมด</button>
+                <button class="partner-tab-btn meal-history-filter-btn" data-partner="nether">Nether 👨‍💻</button>
+                <button class="partner-tab-btn meal-history-filter-btn" data-partner="Pooja">Pooja 🌸</button>
+            </div>
+
+            <div id="mealHistoryContainerList" style="display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto;">
+                <!-- Populated dynamically via JS -->
             </div>
         </div>
     </div>

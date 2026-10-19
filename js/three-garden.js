@@ -55,7 +55,7 @@ class Garden3D {
         const height = this.container.clientHeight || 320;
 
         this.scene = new THREE.Scene();
-        this.scene.fog = new THREE.FogExp2(0xFFF9F5, 0.035);
+        this.scene.fog = new THREE.FogExp2(0xF4EBE1, 0.035);
 
         this.camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
         this.camera.position.set(0, 2.5, 6.4);
@@ -70,12 +70,12 @@ class Garden3D {
         this.container.innerHTML = '';
         this.container.appendChild(this.renderer.domElement);
 
-        // Warm Cinematic Studio Lighting (Enhances Pixar character feel)
-        const ambientLight = new THREE.AmbientLight(0xFFF8EE, 0.95);
+        // Warm Cinematic Studio Lighting (Soft and natural to avoid glaring white wash)
+        const ambientLight = new THREE.AmbientLight(0xFFEFE2, 0.78);
         this.scene.add(ambientLight);
 
-        // Key Light (Warm soft sunlight)
-        const keyLight = new THREE.DirectionalLight(0xFFF4E6, 1.35);
+        // Key Light (Warm soft sunlight, toned to eliminate harsh glare)
+        const keyLight = new THREE.DirectionalLight(0xFFF2E6, 1.10);
         keyLight.position.set(4, 8, 5);
         keyLight.castShadow = true;
         keyLight.shadow.mapSize.width = 1024;
@@ -83,17 +83,17 @@ class Garden3D {
         keyLight.shadow.bias = -0.0005;
         this.scene.add(keyLight);
 
-        // Fill Light (Soft peach/mint bounce)
-        const fillLight = new THREE.DirectionalLight(0xE3F2FD, 0.55);
+        // Fill Light (Soft bounce)
+        const fillLight = new THREE.DirectionalLight(0xD8E8F5, 0.45);
         fillLight.position.set(-4, 3, -3);
         this.scene.add(fillLight);
 
         // Rim Light (Back light for fluffy silhouette glow)
-        const rimLight = new THREE.PointLight(0xFFD54F, 0.8, 15);
+        const rimLight = new THREE.PointLight(0xFFA726, 0.75, 15);
         rimLight.position.set(0, 4, -4);
         this.scene.add(rimLight);
 
-        // Pedestal Island
+        // Pedestal Island (Oak Wood Finish)
         this.createCatPedestal();
 
         // Cat Root Group
@@ -113,40 +113,103 @@ class Garden3D {
         this.animate();
     }
 
+    createOakWoodTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Oak wood base radial gradient (warm dark oak)
+        const grad = ctx.createRadialGradient(256, 256, 12, 256, 256, 256);
+        grad.addColorStop(0, '#8A5833'); // Warm honey-caramel oak center
+        grad.addColorStop(0.35, '#704323'); // Rich golden oak
+        grad.addColorStop(0.72, '#533017'); // Deep rich oak
+        grad.addColorStop(1.0, '#3A1F0D'); // Dark roasted oak edge
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Natural concentric annual growth rings with organic wobble
+        ctx.lineWidth = 1.6;
+        for (let r = 8; r < 256; r += 7.5 + Math.sin(r * 0.22) * 2.8) {
+            ctx.strokeStyle = `rgba(40, 18, 8, ${0.16 + (r % 15 === 0 ? 0.22 : 0.08)})`;
+            ctx.beginPath();
+            for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.04) {
+                const wave = Math.sin(a * 4 + r * 0.14) * 2.6 + Math.cos(a * 7) * 1.4;
+                const x = 256 + Math.cos(a) * (r + wave);
+                const y = 256 + Math.sin(a) * (r + wave);
+                if (a === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        // Medullary ray flecks (subtle lighter wood rays characteristic of natural oak)
+        for (let i = 0; i < 42; i++) {
+            const angle = (i / 42) * Math.PI * 2 + (Math.sin(i * 1.8) * 0.08);
+            ctx.strokeStyle = 'rgba(215, 165, 110, 0.16)';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(256 + Math.cos(angle) * 22, 256 + Math.sin(angle) * 22);
+            ctx.lineTo(256 + Math.cos(angle) * 246, 256 + Math.sin(angle) * 246);
+            ctx.stroke();
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        return texture;
+    }
+
     createCatPedestal() {
         const island = new THREE.Group();
+        const oakTexture = this.createOakWoodTexture();
 
-        // Round grassy play cushion
-        const cushionGeo = new THREE.CylinderGeometry(2.35, 2.05, 0.45, 48);
-        const cushionMat = new THREE.MeshStandardMaterial({
-            color: 0xFFE0B2,
-            roughness: 0.65,
-            metalness: 0.05
+        // 1. Lower Oak Wood Plinth (Chamfered Cylinder)
+        const plinthGeo = new THREE.CylinderGeometry(2.35, 2.12, 0.44, 48);
+        const plinthMat = new THREE.MeshStandardMaterial({
+            color: 0x4B2C15, // Deep warm oak
+            roughness: 0.58,
+            metalness: 0.08
         });
-        const cushion = new THREE.Mesh(cushionGeo, cushionMat);
-        cushion.position.y = -0.22;
-        cushion.receiveShadow = true;
-        island.add(cushion);
+        const plinth = new THREE.Mesh(plinthGeo, plinthMat);
+        plinth.position.y = -0.22;
+        plinth.receiveShadow = true;
+        island.add(plinth);
 
-        // Soft pastel rug center
-        const rugGeo = new THREE.CircleGeometry(1.95, 40);
-        const rugMat = new THREE.MeshStandardMaterial({
-            color: 0xFFF8F0,
-            roughness: 0.85
+        // 2. Polished Brass Accent Ring Trim
+        const brassGeo = new THREE.TorusGeometry(1.98, 0.042, 16, 48);
+        const brassMat = new THREE.MeshStandardMaterial({
+            color: 0xD4AF37, // Polished brass gold
+            roughness: 0.28,
+            metalness: 0.82
         });
-        const rug = new THREE.Mesh(rugGeo, rugMat);
-        rug.rotation.x = -Math.PI / 2;
-        rug.position.y = 0.01;
-        rug.receiveShadow = true;
-        island.add(rug);
+        const brassRing = new THREE.Mesh(brassGeo, brassMat);
+        brassRing.rotation.x = Math.PI / 2;
+        brassRing.position.y = 0.015;
+        island.add(brassRing);
 
-        // Decorative pastel paw prints on rug edge
+        // 3. Main Oak Wood Deck (Round Parquet Surface with Grain)
+        const deckGeo = new THREE.CircleGeometry(1.95, 48);
+        const deckMat = new THREE.MeshStandardMaterial({
+            map: oakTexture,
+            roughness: 0.46,
+            metalness: 0.06
+        });
+        const deck = new THREE.Mesh(deckGeo, deckMat);
+        deck.rotation.x = -Math.PI / 2;
+        deck.position.y = 0.01;
+        deck.receiveShadow = true;
+        island.add(deck);
+
+        // 4. Decorative Warm Brass Paw Print Inlays
         for (let i = 0; i < 6; i++) {
             const angle = (i / 6) * Math.PI * 2;
-            const pawGeo = new THREE.SphereGeometry(0.08, 16, 16);
-            const pawMat = new THREE.MeshStandardMaterial({ color: 0xFFAB91, roughness: 0.8 });
+            const pawGeo = new THREE.SphereGeometry(0.075, 16, 16);
+            const pawMat = new THREE.MeshStandardMaterial({
+                color: 0xC6923E, // Antique brushed brass
+                roughness: 0.35,
+                metalness: 0.75
+            });
             const paw = new THREE.Mesh(pawGeo, pawMat);
-            paw.position.set(Math.cos(angle) * 1.45, 0.02, Math.sin(angle) * 1.45);
+            paw.position.set(Math.cos(angle) * 1.5, 0.02, Math.sin(angle) * 1.5);
             paw.scale.set(1, 0.2, 1);
             island.add(paw);
         }
@@ -362,7 +425,7 @@ class Garden3D {
         [-1, 1].forEach((side) => {
             [-0.03, 0.0, 0.03].forEach((yOffset, wi) => {
                 const whiskerGeo = new THREE.CylinderGeometry(0.004 * scaleFactor, 0.002 * scaleFactor, 0.36 * scaleFactor, 8);
-                const whiskerMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+                const whiskerMat = new THREE.MeshBasicMaterial({ color: 0xE8E1D5 });
                 const whisker = new THREE.Mesh(whiskerGeo, whiskerMat);
                 whisker.position.set(side * 0.26 * scaleFactor, (-0.15 + yOffset) * scaleFactor, 0.46 * scaleFactor);
                 whisker.rotation.z = side * (Math.PI / 2 + (wi - 1) * 0.18);
@@ -380,9 +443,9 @@ class Garden3D {
             eyeSocket.position.set(xOffset * scaleFactor, 0.10 * scaleFactor, 0.44 * scaleFactor);
             eyeSocket.rotation.y = (i === 0 ? 0.14 : -0.14); // Slight outward tilt for cartoon charm
 
-            // 1) Sclera (Eye White Dome)
+            // 1) Sclera (Eye White Dome - Soft Warm Ivory, Non-Glare)
             const whiteGeo = new THREE.SphereGeometry(0.18 * scaleFactor, 24, 20);
-            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.15 });
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xEDE5DA, roughness: 0.25 });
             const whiteMesh = new THREE.Mesh(whiteGeo, whiteMat);
             whiteMesh.scale.set(1.0, 1.16, 0.42);
             eyeSocket.add(whiteMesh);
@@ -1147,6 +1210,157 @@ class Garden3D {
             this.triggerVaccineAnimation();
         } else {
             this.triggerGroomingAnimation();
+        }
+    }
+
+    // 3D Interactive Toy Play Animation (Feather wand, yarn ball, or star laser)
+    triggerPlayToy(toyType = 'cat_toy_feather') {
+        if (!this.hasCat) return;
+        this.setAnimState('jump');
+
+        if (window.soundManager) {
+            window.soundManager.playCatPurr();
+            setTimeout(() => {
+                window.soundManager.playCatMeow(this.currentBreed, 'happy');
+            }, 350);
+        }
+
+        const toyGroup = new THREE.Group();
+        const headY = this.headGroup ? this.headGroup.position.y : 1.48;
+
+        if (toyType === 'cat_toy_laser') {
+            // Glowing Star Laser Dot dancing on the oak deck
+            const laserGeo = new THREE.SphereGeometry(0.065, 16, 16);
+            const laserMat = new THREE.MeshBasicMaterial({ color: 0xFF1744 });
+            const laserDot = new THREE.Mesh(laserGeo, laserMat);
+            laserDot.position.set(0.6, 0.05, 0.7);
+            toyGroup.add(laserDot);
+
+            let t = 0;
+            const laserInterval = setInterval(() => {
+                t += 0.25;
+                laserDot.position.x = Math.sin(t * 2) * 0.9;
+                laserDot.position.z = Math.cos(t * 1.5) * 0.8 + 0.3;
+                if (this.headGroup) {
+                    this.headGroup.rotation.y = Math.sin(t * 2) * 0.35;
+                    this.headGroup.rotation.x = 0.2 + Math.cos(t * 1.5) * 0.15;
+                }
+                if (t > 15) {
+                    clearInterval(laserInterval);
+                    this.scene.remove(toyGroup);
+                    if (this.headGroup) {
+                        this.headGroup.rotation.y = 0;
+                        this.headGroup.rotation.x = 0;
+                    }
+                }
+            }, 50);
+        } else if (toyType === 'cat_toy_yarn') {
+            // Colorful Soft Yarn Ball rolling across deck
+            const yarnGeo = new THREE.SphereGeometry(0.18, 20, 20);
+            const yarnMat = new THREE.MeshStandardMaterial({ color: 0xFF4081, roughness: 0.9 });
+            const yarnBall = new THREE.Mesh(yarnGeo, yarnMat);
+            yarnBall.position.set(0.7, 0.18, 0.8);
+            toyGroup.add(yarnBall);
+
+            // Ring bell on yarn ball
+            const bellGeo = new THREE.SphereGeometry(0.045, 12, 12);
+            const bellMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, metalness: 0.85 });
+            const bell = new THREE.Mesh(bellGeo, bellMat);
+            bell.position.set(0, 0.14, 0);
+            yarnBall.add(bell);
+
+            let t = 0;
+            const rollInterval = setInterval(() => {
+                t += 0.15;
+                yarnBall.position.x = Math.cos(t) * 0.85;
+                yarnBall.position.z = Math.sin(t) * 0.65 + 0.4;
+                yarnBall.rotation.x += 0.2;
+                yarnBall.rotation.y += 0.15;
+                if (this.frontLeftLeg) this.frontLeftLeg.rotation.x = -0.3 + Math.sin(t * 3) * 0.25;
+                if (t > 14) {
+                    clearInterval(rollInterval);
+                    this.scene.remove(toyGroup);
+                    if (this.frontLeftLeg) this.frontLeftLeg.rotation.x = -0.15;
+                }
+            }, 50);
+        } else {
+            // Feather Wand waving gracefully above cat's head
+            const stickGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.8, 12);
+            const stickMat = new THREE.MeshStandardMaterial({ color: 0x8D6E63 });
+            const stick = new THREE.Mesh(stickGeo, stickMat);
+            stick.rotation.z = Math.PI / 4;
+            stick.position.set(0.45, headY + 0.35, 0.7);
+            toyGroup.add(stick);
+
+            // Multi-color Feathers
+            [-0.08, 0.0, 0.08].forEach((offset, idx) => {
+                const featherGeo = new THREE.ConeGeometry(0.065, 0.26, 12);
+                const colors = [0xFF4081, 0x00E5FF, 0xFFEA00];
+                const featherMat = new THREE.MeshStandardMaterial({ color: colors[idx % 3], roughness: 0.8 });
+                const feather = new THREE.Mesh(featherGeo, featherMat);
+                feather.rotation.z = -Math.PI / 3 + offset;
+                feather.position.set(0.18 + offset, headY + 0.6, 0.75);
+                toyGroup.add(feather);
+            });
+
+            let t = 0;
+            const waveInterval = setInterval(() => {
+                t += 0.2;
+                toyGroup.position.x = Math.sin(t * 1.8) * 0.3;
+                toyGroup.position.y = Math.cos(t * 1.5) * 0.15;
+                if (this.headGroup) this.headGroup.rotation.y = Math.sin(t * 1.8) * 0.25;
+                if (this.frontRightLeg) this.frontRightLeg.rotation.x = -0.4 + Math.sin(t * 2) * 0.3;
+                if (t > 15) {
+                    clearInterval(waveInterval);
+                    this.scene.remove(toyGroup);
+                    if (this.frontRightLeg) this.frontRightLeg.rotation.x = -0.15;
+                    if (this.headGroup) this.headGroup.rotation.y = 0;
+                }
+            }, 50);
+        }
+
+        this.scene.add(toyGroup);
+
+        // Spawn cheerful floating hearts and musical notes
+        for (let i = 0; i < 30; i++) {
+            const count = 30;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+            const velocities = [];
+            for (let j = 0; j < count; j++) {
+                positions[j * 3] = (Math.random() - 0.5) * 1.5;
+                positions[j * 3 + 1] = headY - 0.2 + Math.random() * 0.8;
+                positions[j * 3 + 2] = 0.5 + (Math.random() - 0.5) * 1.2;
+                velocities.push({
+                    x: (Math.random() - 0.5) * 0.025,
+                    y: 0.025 + Math.random() * 0.035,
+                    z: (Math.random() - 0.5) * 0.025
+                });
+            }
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const pMat = new THREE.PointsMaterial({
+                color: toyType === 'cat_toy_laser' ? 0xFF5252 : 0xFF80AB,
+                size: 0.16,
+                transparent: true,
+                opacity: 0.95
+            });
+            const pMesh = new THREE.Points(geometry, pMat);
+            this.scene.add(pMesh);
+            this.particleSystems.push({
+                mesh: pMesh,
+                velocities: velocities,
+                life: 1.8,
+                update: () => {
+                    const pos = pMesh.geometry.attributes.position.array;
+                    for (let k = 0; k < count; k++) {
+                        pos[k * 3] += velocities[k].x;
+                        pos[k * 3 + 1] += velocities[k].y;
+                        pos[k * 3 + 2] += velocities[k].z;
+                    }
+                    pMesh.geometry.attributes.position.needsUpdate = true;
+                }
+            });
+            break;
         }
     }
 

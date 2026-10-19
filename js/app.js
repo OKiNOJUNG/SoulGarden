@@ -13,6 +13,10 @@ class AppController {
         this.presenceInterval = null;
         this.selectedAdoptBreed = 'orange_tabby';
         this.currentManualStep = 0;
+        this.activePlayTimer = null;
+        this.activePlaySeconds = 0;
+        this.activePlayToy = 'hands';
+        this.currentMealHistoryPartner = 'all';
 
         this.init();
     }
@@ -29,12 +33,13 @@ class AppController {
     }
 
     checkExistingSession() {
-        const savedUserId = sessionStorage.getItem('lovetree_active_user');
+        const savedUserId = sessionStorage.getItem('lovetree_active_user') || localStorage.getItem('lovetree_active_user');
         if (savedUserId && (savedUserId === 'nether' || savedUserId === 'Pooja')) {
             this.setLoggedInUser(savedUserId);
         } else {
             this.currentUser = null;
             sessionStorage.removeItem('lovetree_active_user');
+            localStorage.removeItem('lovetree_active_user');
             const viewport = document.getElementById('appViewport');
             if (viewport) viewport.classList.add('is-logged-out');
 
@@ -54,6 +59,7 @@ class AppController {
     setLoggedInUser(userId) {
         this.currentUser = userId;
         sessionStorage.setItem('lovetree_active_user', userId);
+        localStorage.setItem('lovetree_active_user', userId);
 
         const viewport = document.getElementById('appViewport');
         if (viewport) viewport.classList.remove('is-logged-out');
@@ -85,8 +91,8 @@ class AppController {
         }
 
         this.navigateTo('view-garden');
-        this.renderAll();
-        this.checkMorningReport();
+        try { this.renderAll(); } catch (e) { console.error('renderAll error:', e); }
+        try { this.checkMorningReport(); } catch (e) { console.error('checkMorningReport error:', e); }
 
         // Check if first-time onboarding manual or cat adoption needed
         const initialData = window.appStorage.getLocalData();
@@ -131,8 +137,9 @@ class AppController {
             if (this.currentUser) {
                 window.appStorage.updatePresence(this.currentUser, true);
                 this.updatePresenceUI();
+                try { this.updateNavBadges(); } catch (e) {}
             }
-        }, 20000); // 20-second heartbeat
+        }, 5000); // 5-second heartbeat for responsive badges and presence
     }
 
     updatePresenceUI() {
@@ -191,6 +198,7 @@ class AppController {
             this.presenceInterval = null;
         }
         sessionStorage.removeItem('lovetree_active_user');
+        localStorage.removeItem('lovetree_active_user');
         this.currentUser = null;
 
         const viewport = document.getElementById('appViewport');
@@ -231,6 +239,12 @@ class AppController {
         const pointsDisplay = document.getElementById('userPointsDisplay');
         if (pointsDisplay) pointsDisplay.innerText = me.points;
 
+        // Settings button visible strictly to ID: nether only
+        const settingsBtn = document.getElementById('appSettingsBtn');
+        if (settingsBtn) {
+            settingsBtn.style.display = (this.currentUser === 'nether') ? 'flex' : 'none';
+        }
+
         this.currentMealPartner = this.currentUser;
         this.updateMealPartnerTabs();
     }
@@ -242,6 +256,8 @@ class AppController {
         }
 
         if (this.currentView === viewId && document.getElementById(viewId)?.classList.contains('active-view')) {
+            this.setNavSeenTime(viewId);
+            try { this.updateNavBadges(); } catch (e) {}
             return;
         }
 
@@ -252,6 +268,8 @@ class AppController {
         if (targetView) {
             targetView.classList.add('active-view');
             this.currentView = viewId;
+            this.setNavSeenTime(viewId);
+            try { this.updateNavBadges(); } catch (e) {}
         }
 
         const navBtns = document.querySelectorAll('.nav-item-btn');
@@ -263,12 +281,205 @@ class AppController {
             }
         });
 
-        if (viewId === 'view-garden' && this.garden3D) {
-            setTimeout(() => this.garden3D.onResize(), 60);
+        // Trigger dynamic render for active view
+        if (viewId === 'view-garden') {
+            try { this.renderGardenView(); } catch (e) {}
+            if (this.garden3D) setTimeout(() => this.garden3D.onResize(), 60);
+        } else if (viewId === 'view-quests') {
+            try { this.renderQuestsView(); } catch (e) {}
+        } else if (viewId === 'view-meals') {
+            try { this.renderMealsView(); } catch (e) {}
+        } else if (viewId === 'view-calendar') {
+            try { this.renderCalendarView(); } catch (e) {}
+        } else if (viewId === 'view-notes') {
+            try { this.renderNotesView(); } catch (e) {}
+        } else if (viewId === 'view-chat') {
+            try { this.renderChatView(); } catch (e) {}
+        } else if (viewId === 'view-quiz') {
+            try { this.renderQuizView(); } catch (e) {}
+        } else if (viewId === 'view-postits') {
+            try { this.renderPostitView(); } catch (e) {}
         }
 
         window.scrollTo(0, 0);
         if (window.lucide) window.lucide.createIcons();
+    }
+
+    getNavSeenTimes() {
+        try {
+            const raw = localStorage.getItem(`lovetree_nav_seen_${this.currentUser}`);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    setNavSeenTime(viewId) {
+        if (!this.currentUser || !viewId) return;
+        const times = this.getNavSeenTimes();
+        times[viewId] = Date.now();
+        try {
+            localStorage.setItem(`lovetree_nav_seen_${this.currentUser}`, JSON.stringify(times));
+        } catch (e) {}
+    }
+
+    renderNavBadge(badgeId, count) {
+        const el = document.getElementById(badgeId);
+        if (!el) return;
+        if (count > 0) {
+            el.textContent = count > 99 ? '99+' : count;
+            el.classList.remove('hidden');
+        } else {
+            el.textContent = '';
+            el.classList.add('hidden');
+        }
+    }
+
+    updateNavBadges() {
+        if (!this.currentUser || this.currentUser === '') return;
+        const data = window.appStorage.getLocalData();
+        const times = this.getNavSeenTimes();
+        const partnerId = this.currentUser === 'nether' ? 'Pooja' : 'nether';
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // 1. Chat Badge: unread messages from partner
+        let chatCount = 0;
+        if (this.currentView === 'view-chat') {
+            this.setNavSeenTime('view-chat');
+        } else {
+            const lastChatTime = times['view-chat'] || 0;
+            chatCount = (data.chatMessages || []).filter(m => 
+                m.sender !== this.currentUser && (!m.readByPartner || new Date(m.timestamp).getTime() > lastChatTime)
+            ).length;
+        }
+        this.renderNavBadge('badgeNavChat', chatCount);
+
+        // 2. Quests Badge: incomplete daily quests for currentUser
+        let questCount = 0;
+        if (this.currentView === 'view-quests') {
+            this.setNavSeenTime('view-quests');
+        } else {
+            const questList = (data.quests && Array.isArray(data.quests) && data.quests.length > 0)
+                ? data.quests
+                : (typeof DEFAULT_QUESTS !== 'undefined' ? DEFAULT_QUESTS : []);
+
+            questList.forEach(q => {
+                let isCompleted = false;
+                if (q.category === 'checkin') {
+                    isCompleted = !!(data.users[this.currentUser]?.lastCheckin === todayStr);
+                } else if (q.category === 'care') {
+                    const userCare = data.dailyCare?.[todayStr]?.[this.currentUser];
+                    isCompleted = !!(userCare && (userCare.food > 0 || userCare.treats > 0 || userCare.health > 0));
+                } else if (q.category === 'play') {
+                    const userCare = data.dailyCare?.[todayStr]?.[this.currentUser];
+                    isCompleted = !!(userCare && userCare.playTime > 0);
+                } else if (q.category === 'meals') {
+                    const userMeals = data.meals?.[todayStr]?.[this.currentUser];
+                    isCompleted = !!(userMeals && (userMeals.breakfast?.eaten || userMeals.lunch?.eaten || userMeals.dinner?.eaten || (userMeals.snacks && userMeals.snacks.length > 0)));
+                } else if (q.category === 'notes') {
+                    const userCare = data.dailyCare?.[todayStr]?.[this.currentUser];
+                    const hasNoteAction = !!(userCare && userCare.noteAction);
+                    const hasNoteToday = !!(data.notes && data.notes.some(n => 
+                        (n.author === this.currentUser || n.updatedBy === this.currentUser) && 
+                        ((n.createdAt && n.createdAt.startsWith(todayStr)) || (n.updatedAt && n.updatedAt.startsWith(todayStr)))
+                    ));
+                    isCompleted = hasNoteAction || hasNoteToday;
+                } else if (q.category === 'chat') {
+                    isCompleted = !!(data.chatMessages && data.chatMessages.some(m => m.sender === this.currentUser && m.timestamp && m.timestamp.startsWith(todayStr)));
+                } else if (q.category === 'bedtime') {
+                    isCompleted = !!(data.calendarMoods?.[todayStr]?.[this.currentUser]);
+                } else if (q.category === 'quiz') {
+                    isCompleted = !!(data.quizzes && data.quizzes.some(qz => qz.date === todayStr && qz.completedBy && qz.completedBy.includes(this.currentUser)));
+                }
+                if (!isCompleted) questCount++;
+            });
+        }
+        this.renderNavBadge('badgeNavQuests', questCount);
+
+        // 3. Notes Badge: notes created or updated by partner since last visit
+        let notesCount = 0;
+        if (this.currentView === 'view-notes') {
+            this.setNavSeenTime('view-notes');
+        } else {
+            const lastNotesTime = times['view-notes'] || 0;
+            notesCount = (data.notes || []).filter(n => 
+                (n.updatedBy === partnerId || n.author === partnerId) && 
+                new Date(n.updatedAt || n.createdAt).getTime() > lastNotesTime
+            ).length;
+        }
+        this.renderNavBadge('badgeNavNotes', notesCount);
+
+        // 4. Meals Badge: partner recorded meal/snack activity since last visit
+        let mealsCount = 0;
+        if (this.currentView === 'view-meals') {
+            this.setNavSeenTime('view-meals');
+        } else {
+            const lastMealsTime = times['view-meals'] || 0;
+            const partnerMeals = data.meals?.[todayStr]?.[partnerId];
+            if (partnerMeals) {
+                if (partnerMeals.breakfast?.eaten && partnerMeals.breakfast.time) mealsCount++;
+                if (partnerMeals.lunch?.eaten && partnerMeals.lunch.time) mealsCount++;
+                if (partnerMeals.dinner?.eaten && partnerMeals.dinner.time) mealsCount++;
+                if (partnerMeals.snacks && partnerMeals.snacks.length > 0) {
+                    mealsCount += partnerMeals.snacks.length;
+                }
+            }
+            if (lastMealsTime > 0 && new Date(lastMealsTime).toISOString().startsWith(todayStr)) {
+                mealsCount = Math.max(0, mealsCount - (times['seen_meal_count_' + todayStr] || 0));
+            }
+        }
+        this.renderNavBadge('badgeNavMeals', mealsCount);
+
+        // 5. Calendar Badge: partner bedtime mood submitted today
+        let calendarCount = 0;
+        if (this.currentView === 'view-calendar') {
+            this.setNavSeenTime('view-calendar');
+        } else {
+            const lastCalTime = times['view-calendar'] || 0;
+            const partnerMood = data.calendarMoods?.[todayStr]?.[partnerId];
+            if (partnerMood && partnerMood.timestamp && new Date(partnerMood.timestamp).getTime() > lastCalTime) {
+                calendarCount = 1;
+            }
+        }
+        this.renderNavBadge('badgeNavCalendar', calendarCount);
+
+        // 6. Quiz Badge: today's quiz ready or partner played
+        let quizCount = 0;
+        if (this.currentView === 'view-quiz') {
+            this.setNavSeenTime('view-quiz');
+        } else {
+            const lastQuizTime = times['view-quiz'] || 0;
+            const todayQuiz = (data.quizzes || []).find(qz => qz.date === todayStr);
+            if (todayQuiz) {
+                const partnerPlayed = todayQuiz.completedBy && todayQuiz.completedBy.includes(partnerId);
+                const userPlayed = todayQuiz.completedBy && todayQuiz.completedBy.includes(this.currentUser);
+                if ((partnerPlayed || !userPlayed) && (!lastQuizTime || new Date(todayQuiz.createdAt || todayStr).getTime() > lastQuizTime)) {
+                    quizCount = 1;
+                }
+            }
+        }
+        this.renderNavBadge('badgeNavQuiz', quizCount);
+
+        // 7. Postits Badge: new postits created since last visit
+        let postitsCount = 0;
+        if (this.currentView === 'view-postits') {
+            this.setNavSeenTime('view-postits');
+        } else {
+            const lastPostitTime = times['view-postits'] || 0;
+            postitsCount = (data.postits || []).filter(p => new Date(p.createdAt).getTime() > lastPostitTime).length;
+        }
+        this.renderNavBadge('badgeNavPostits', postitsCount);
+
+        // 8. Garden Badge: urgent cat attention needed
+        let gardenCount = 0;
+        if (this.currentView === 'view-garden') {
+            this.setNavSeenTime('view-garden');
+        } else if (data.cat) {
+            if ((data.cat.fullnessLevel !== undefined && data.cat.fullnessLevel < 30) || (data.cat.health !== undefined && data.cat.health < 30) || data.cat.hasFever || data.cat.hasLongNails) {
+                gardenCount = 1;
+            }
+        }
+        this.renderNavBadge('badgeNavGarden', gardenCount);
     }
 
     checkMorningReport() {
@@ -376,13 +587,36 @@ class AppController {
             liveControls.classList.remove('hidden');
         }
 
+        // Auto-reveal breed if reached 60 days
+        if (cat.growthDay >= 60 && !cat.isRevealed) {
+            const revealed = window.appStorage.revealCatBreed();
+            if (revealed) {
+                Swal.fire({
+                    title: '🎉 เผยสายพันธุ์แท้จริงแล้ว! 🐾✨',
+                    text: `ยินดีด้วย! คุณทั้งสองช่วยกันดูแลน้องแมวมาครบ 2 เดือน (60 วัน) แล้ว น้องแมวเผยสายพันธุ์ที่แท้จริงคือ: "${revealed.name}" (${revealed.personality})`,
+                    icon: 'success'
+                });
+            }
+        }
+
         if (this.garden3D) {
             this.garden3D.buildCat(cat.breed, cat.growthPercent);
             this.garden3D.setSicknessState(cat.hasFever, cat.hasLongNails);
         }
 
         const catNameEl = document.getElementById('gardenCatName');
-        if (catNameEl) catNameEl.innerText = `${cat.name}`;
+        const yearPillEl = document.getElementById('catYearPill');
+        if (catNameEl) {
+            if (!cat.isRevealed) {
+                catNameEl.innerHTML = `${cat.name} <span>🎁❓</span> <small style="font-size: 11px; color: #8D6E63; font-weight: 600;">(ลูกแมวปริศนา)</small>`;
+                if (yearPillEl) yearPillEl.innerText = `ลุ้นพันธุ์: วันที่ ${cat.growthDay}/60`;
+            } else {
+                const bInfo = CAT_BREEDS[cat.breed] || { name: 'แมวความรัก' };
+                catNameEl.innerHTML = `${cat.name} <span>🐾</span> <small style="font-size: 11px; color: var(--accent-coral); font-weight: 700;">(${bInfo.name})</small>`;
+                if (yearPillEl) yearPillEl.innerText = cat.growthDay >= 180 ? 'ครบ 6 เดือน (พร้อมเกษียณ)' : `วันที่ ${cat.growthDay}/180`;
+            }
+        }
+
         const growthDayEl = document.getElementById('gardenGrowthDay');
         if (growthDayEl) growthDayEl.innerText = cat.growthDay;
 
@@ -415,6 +649,39 @@ class AppController {
         const countWeed = document.getElementById('countWeedInv');
         if (countWeed) countWeed.innerText = `เหลือ ${data.inventory.grooming_kit}`;
 
+        // Anti-Spam 100% Care Caps UI Styling
+        const actWater = document.getElementById('actWaterBtn');
+        if (actWater) {
+            if (cat.fullnessLevel >= 100) {
+                actWater.style.opacity = '0.55';
+                actWater.title = 'ความอิ่ม 100% แล้ว (ไม่สามารถป้อนเพิ่มได้ เพื่อกันการอัดของ)';
+            } else {
+                actWater.style.opacity = '1';
+                actWater.title = 'ให้อาหารหลัก';
+            }
+        }
+        const actFert = document.getElementById('actFertBtn');
+        if (actFert) {
+            if (cat.affectionLevel >= 100) {
+                actFert.style.opacity = '0.55';
+                actFert.title = 'ความสุขผูกพัน 100% แล้ว (ไม่สามารถให้ขนมเพิ่มได้ เพื่อกันการอัดของ)';
+            } else {
+                actFert.style.opacity = '1';
+                actFert.title = 'ให้แมวเลีย';
+            }
+        }
+        const actPest = document.getElementById('actPestBtn');
+        const actWeed = document.getElementById('actWeedBtn');
+        const isHealthMaxed = cat.health >= 100 && !cat.hasFever && !cat.hasLongNails;
+        if (actPest) {
+            actPest.style.opacity = isHealthMaxed ? '0.55' : '1';
+            actPest.title = isHealthMaxed ? 'สุขภาพกาย 100% แล้ว (เพื่อกันการอัดของ)' : 'ฉีดวัคซีน';
+        }
+        if (actWeed) {
+            actWeed.style.opacity = isHealthMaxed ? '0.55' : '1';
+            actWeed.title = isHealthMaxed ? 'สุขภาพกาย 100% แล้ว (เพื่อกันการอัดของ)' : 'ตัดขนตัดเล็บ';
+        }
+
         // Sickness banner
         if (cat.hasFever || cat.hasLongNails) {
             if (obstacleBanner) obstacleBanner.classList.remove('hidden');
@@ -446,6 +713,7 @@ class AppController {
         try { this.renderResetSection(); } catch (e) { console.error('ResetSection error:', e); }
         try { this.updateFirebaseSettingsUI(); } catch (e) { console.error('FirebaseSettings error:', e); }
         try { this.updateHeaderPoints(); } catch (e) { console.error('HeaderPoints error:', e); }
+        try { this.updateNavBadges(); } catch (e) { console.error('NavBadges error:', e); }
 
         if (window.lucide) window.lucide.createIcons();
     }
@@ -488,8 +756,39 @@ class AppController {
         let incompleteCount = 0;
         let completeCount = 0;
 
-        data.quests.forEach(q => {
-            const isCompleted = me.lastCheckin === todayStr && q.category === 'checkin';
+        const questList = (data.quests && Array.isArray(data.quests) && data.quests.length > 0)
+            ? data.quests
+            : (typeof DEFAULT_QUESTS !== 'undefined' ? DEFAULT_QUESTS : []);
+
+        questList.forEach(q => {
+            let isCompleted = false;
+            if (q.category === 'checkin') {
+                isCompleted = me.lastCheckin === todayStr;
+            } else if (q.category === 'care') {
+                const userCare = data.dailyCare?.[todayStr]?.[this.currentUser];
+                isCompleted = !!(userCare && (userCare.food > 0 || userCare.treats > 0 || userCare.health > 0));
+            } else if (q.category === 'play') {
+                const userCare = data.dailyCare?.[todayStr]?.[this.currentUser];
+                isCompleted = !!(userCare && userCare.playTime > 0);
+            } else if (q.category === 'meals') {
+                const userMeals = data.meals?.[todayStr]?.[this.currentUser];
+                isCompleted = !!(userMeals && (userMeals.breakfast?.eaten || userMeals.lunch?.eaten || userMeals.dinner?.eaten || (userMeals.snacks && userMeals.snacks.length > 0)));
+            } else if (q.category === 'notes') {
+                const userCare = data.dailyCare?.[todayStr]?.[this.currentUser];
+                const hasNoteAction = !!(userCare && userCare.noteAction);
+                const hasNoteToday = !!(data.notes && data.notes.some(n => 
+                    (n.author === this.currentUser || n.updatedBy === this.currentUser) && 
+                    ((n.createdAt && n.createdAt.startsWith(todayStr)) || (n.updatedAt && n.updatedAt.startsWith(todayStr)))
+                ));
+                isCompleted = hasNoteAction || hasNoteToday;
+            } else if (q.category === 'chat') {
+                isCompleted = !!(data.chatMessages && data.chatMessages.some(m => m.sender === this.currentUser && m.timestamp && m.timestamp.startsWith(todayStr)));
+            } else if (q.category === 'bedtime') {
+                isCompleted = !!(data.calendarMoods?.[todayStr]?.[this.currentUser]);
+            } else if (q.category === 'quiz') {
+                isCompleted = !!(data.quizzes && data.quizzes.some(qz => qz.date === todayStr && qz.completedBy && qz.completedBy.includes(this.currentUser)));
+            }
+
             const card = document.createElement('div');
             card.className = `quest-item-card ${isCompleted ? 'completed-quest' : 'clickable-quest'}`;
 
@@ -528,10 +827,18 @@ class AppController {
         SHOP_ITEMS.forEach(item => {
             const card = document.createElement('div');
             card.className = 'shop-item-card';
+            const itemIcon = item.id === 'main_food' ? '🐟' :
+                             item.id === 'creamy_treat' ? '💖' :
+                             item.id === 'vaccine' ? '💉' :
+                             item.id === 'grooming_kit' ? '✂️' :
+                             item.id === 'cat_toy_feather' ? '🪶' :
+                             item.id === 'cat_toy_yarn' ? '🧶' :
+                             item.id === 'cat_toy_laser' ? '⭐' : '🐾';
+
             card.innerHTML = `
                 <div>
                     <div class="shop-item-top">
-                        <span class="shop-item-icon">${item.id === 'main_food' ? '🐟' : item.id === 'creamy_treat' ? '💖' : item.id === 'vaccine' ? '💉' : '✂️'}</span>
+                        <span class="shop-item-icon">${itemIcon}</span>
                         <span class="shop-item-name">${item.name}</span>
                     </div>
                     <div class="shop-item-desc">${item.desc}</div>
@@ -764,12 +1071,20 @@ class AppController {
         const submitBtn = document.getElementById('submitBedtimeMoodBtn');
         const timeNotice = document.getElementById('bedtimeTimeGateNotice');
 
-        if (currentHour < 18) {
+        const hasSubmittedToday = !!(data.calendarMoods && data.calendarMoods[todayStr] && data.calendarMoods[todayStr][this.currentUser]);
+        if (hasSubmittedToday) {
             submitBtn.disabled = true;
+            submitBtn.innerText = 'บันทึกความรู้สึกก่อนนอนวันนี้แล้ว ✨';
+            timeNotice.innerText = '✅ คุณได้ส่งความรู้สึกก่อนนอนของวันนี้แล้ว (บันทึกได้วันละ 1 ครั้ง)';
+            timeNotice.style.color = '#81C784';
+        } else if (currentHour < 18) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'บันทึกความรู้สึกก่อนนอน (+60 แต้ม)';
             timeNotice.innerText = `🔒 เปิดให้บันทึกตั้งแต่เวลา 18:00 น. เป็นต้นไป (ขณะนี้ ${currentHour}:00 น.)`;
             timeNotice.style.color = '#FFA726';
         } else {
             submitBtn.disabled = false;
+            submitBtn.innerText = 'บันทึกความรู้สึกก่อนนอน (+60 แต้ม)';
             timeNotice.innerText = '✨ พร้อมส่งความรู้สึกบอกฝันดีให้แฟนแล้ว (+60 แต้ม)';
             timeNotice.style.color = 'rgba(255, 255, 255, 0.9)';
         }
@@ -821,16 +1136,38 @@ class AppController {
             return;
         }
 
+        // Mark incoming messages as read by the opposite partner
+        let hasNewRead = false;
+        data.chatMessages.forEach(msg => {
+            if (msg.sender !== this.currentUser && !msg.readByPartner) {
+                msg.readByPartner = true;
+                hasNewRead = true;
+            }
+        });
+        if (hasNewRead) {
+            window.appStorage.saveLocalData(data);
+        }
+
         data.chatMessages.forEach(msg => {
             const isOutgoing = msg.sender === this.currentUser;
             const timeFormatted = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const senderUser = data.users && data.users[msg.sender] ? data.users[msg.sender].name : msg.sender;
+
+            let readStatusHtml = '';
+            if (isOutgoing) {
+                if (msg.readByPartner) {
+                    readStatusHtml = `<span class="read-receipt-badge" style="font-size: 10px; color: #4CAF50; font-weight: 700; margin-left: 6px;">อ่านแล้ว ✓✓</span>`;
+                } else {
+                    readStatusHtml = `<span class="read-receipt-badge" style="font-size: 10px; opacity: 0.65; margin-left: 6px;">ส่งแล้ว ✓</span>`;
+                }
+            }
 
             const wrap = document.createElement('div');
             wrap.className = `chat-bubble-wrap ${isOutgoing ? 'outgoing-bubble' : 'incoming-bubble'}`;
             wrap.innerHTML = `
                 <div class="chat-bubble">${msg.text}</div>
                 <div class="chat-meta-row">
-                    <span>${msg.sender} • ${timeFormatted}</span>
+                    <span>${senderUser} • ${timeFormatted} ${readStatusHtml}</span>
                 </div>
             `;
             container.appendChild(wrap);
@@ -868,33 +1205,64 @@ class AppController {
         data.quizzes.forEach(q => {
             const isCreatedByMe = q.creator === this.currentUser;
             const hasAnswered = q.completedBy && q.completedBy.includes(this.currentUser);
+            const userAttempts = (q.userAttempts && q.userAttempts[this.currentUser]) || 0;
+            const wrongPicks = (q.wrongPicks && q.wrongPicks[this.currentUser]) || [];
 
             const card = document.createElement('div');
             card.className = 'quiz-card';
-            const optionsHtml = q.options.map((opt, idx) => `
-                <button class="quiz-opt-btn" data-quiz-id="${q.id}" data-opt-idx="${idx}" ${hasAnswered ? 'disabled' : ''}>
-                    ${idx + 1}. ${opt}
-                </button>
-            `).join('');
+
+            const optionsHtml = q.options.map((opt, idx) => {
+                const isWrongPicked = wrongPicks.includes(idx);
+                const isCorrectRevealed = hasAnswered && idx === q.correctIndex;
+                let btnClass = 'quiz-opt-btn';
+                if (isWrongPicked) btnClass += ' wrong-choice';
+                if (isCorrectRevealed) btnClass += ' correct-choice';
+                const isDisabled = isCreatedByMe || hasAnswered || isWrongPicked;
+                return `
+                    <button class="${btnClass}" data-quiz-id="${q.id}" data-opt-idx="${idx}" ${isDisabled ? 'disabled' : ''}>
+                        ${idx + 1}. ${opt}
+                    </button>
+                `;
+            }).join('');
+
+            let footerStatusHtml = '';
+            if (isCreatedByMe) {
+                footerStatusHtml = `
+                    <div style="font-size: 11px; color: #D84315; font-weight: 700; background: #FBE9E7; padding: 6px 10px; border-radius: 8px;">
+                        🔒 คุณเป็นผู้สร้างคำถามนี้ ไม่สามารถตอบเองได้ (รอให้แฟนมาตอบ)
+                    </div>
+                `;
+            } else if (hasAnswered) {
+                const awardGiven = q.pointsAwarded && q.pointsAwarded[this.currentUser] !== undefined ? q.pointsAwarded[this.currentUser] : 0;
+                footerStatusHtml = `
+                    <div style="font-size: 12px; color: var(--accent-mint); font-weight: 700; background: #E8F5E9; padding: 6px 10px; border-radius: 8px;">
+                        ✅ คุณได้ตอบคำถามนี้แล้ว (ได้รับ +${awardGiven} แต้ม)
+                    </div>
+                `;
+            } else if (userAttempts === 1) {
+                footerStatusHtml = `
+                    <div style="font-size: 11px; color: #E65100; font-weight: 700; background: #FFF3E0; padding: 6px 10px; border-radius: 8px;">
+                        ⚠️ ตอบครั้งแรกยังไม่ถูก! เหลือโอกาสเลือกครั้งที่ 2 (หากตอบถูกจะได้คะแนนครึ่งนึง: +${Math.floor(q.reward / 2)} แต้ม)
+                    </div>
+                `;
+            } else {
+                footerStatusHtml = `
+                    <div style="font-size: 11px; color: #5D4037; opacity: 0.85;">
+                        💡 สามารถเลือกตอบได้ 2 ครั้ง: ครั้งแรกถูกได้เต็ม (+${q.reward} แต้ม), ครั้งที่สองถูกได้ครึ่งนึง (+${Math.floor(q.reward / 2)} แต้ม)
+                    </div>
+                `;
+            }
 
             card.innerHTML = `
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span style="font-size: 11px; font-weight: 700; color: var(--accent-coral);">
                         สร้างโดย ${q.creator === 'nether' ? 'Nether 👨‍💻' : 'Pooja 🌸'} (คำถามวันนี้)
                     </span>
-                    <span class="tree-badge-pill" style="font-size: 10px;">รางวัล +${q.reward} แต้ม</span>
+                    <span class="tree-badge-pill" style="font-size: 10px;">รางวัลสูงสุด +${q.reward} แต้ม</span>
                 </div>
                 <h4 class="quiz-question-title">${q.question}</h4>
                 <div class="quiz-options-list">${optionsHtml}</div>
-                ${hasAnswered ? `
-                    <div style="font-size: 12px; color: var(--accent-mint); font-weight: 700;">
-                        ✅ คุณได้ตอบคำถามของวันนี้ไปแล้ว!
-                    </div>
-                ` : isCreatedByMe ? `
-                    <div style="font-size: 11px; color: var(--text-muted);">
-                        (นี่คือคำถามที่คุณสร้าง รอให้แฟนมาตอบ)
-                    </div>
-                ` : ''}
+                ${footerStatusHtml}
             `;
 
             const optBtns = card.querySelectorAll('.quiz-opt-btn');
@@ -970,6 +1338,77 @@ class AppController {
         });
     }
 
+    renderPastQuizHistory(filter = 'all') {
+        const container = document.getElementById('pastQuizHistoryList');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const data = window.appStorage.getLocalData();
+        let history = (data.quizzes && data.quizzes.history) ? [...data.quizzes.history] : [];
+
+        // Include today's quiz if present
+        if (data.quizzes && data.quizzes.todayQuiz) {
+            const todayQ = data.quizzes.todayQuiz;
+            if (!history.find(q => q.id === todayQ.id)) {
+                history.unshift(todayQ);
+            }
+        }
+
+        const now = new Date();
+        const currentMonth = now.toISOString().slice(0, 7);
+        const currentYear = now.getFullYear().toString();
+
+        if (filter === 'month') {
+            history = history.filter(q => q.date && q.date.startsWith(currentMonth));
+        } else if (filter === 'year') {
+            history = history.filter(q => q.date && q.date.startsWith(currentYear));
+        }
+
+        if (history.length === 0) {
+            container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 24px; font-size: 12px;">ยังไม่มีประวัติคำถามควิซในช่วงเวลานี้</div>`;
+            return;
+        }
+
+        history.forEach(q => {
+            const card = document.createElement('div');
+            card.style.cssText = 'background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px; box-shadow: var(--shadow-sm); margin-bottom: 8px;';
+            const creatorName = (data.users && data.users[q.createdBy]) ? data.users[q.createdBy].name : q.createdBy;
+            const correctOpt = (q.options && q.correctIndex !== undefined) ? q.options[q.correctIndex] : 'ไม่มีเฉลย';
+
+            let statusHtml = '';
+            if (q.answered) {
+                const isCorrect = q.selectedOptionIndex === q.correctIndex;
+                const answeredByName = (data.users && data.users[q.answeredBy]) ? data.users[q.answeredBy].name : q.answeredBy;
+                statusHtml = `
+                    <div style="margin-top: 6px; font-size: 11px; padding: 4px 8px; border-radius: 6px; background: ${isCorrect ? '#E8F5E9' : '#FFEBEE'}; color: ${isCorrect ? '#2E7D32' : '#C62828'}; font-weight: 700;">
+                        ${isCorrect ? '✅ ตอบถูกต้อง (+30 แต้ม)' : '❌ ตอบผิด'} โดย ${answeredByName}
+                    </div>
+                `;
+            } else {
+                statusHtml = `
+                    <div style="margin-top: 6px; font-size: 11px; padding: 4px 8px; border-radius: 6px; background: #FFF8E1; color: #E65100; font-weight: 700;">
+                        ⏳ ยังรอคำตอบจากแฟน
+                    </div>
+                `;
+            }
+
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted);">📅 ${q.date || 'วันนี้'}</span>
+                    <span style="font-size: 10.5px; background: #EDE7F6; color: #6A1B9A; padding: 1px 6px; border-radius: 6px; font-weight: 700;">ผู้ตั้ง: ${creatorName}</span>
+                </div>
+                <div style="font-size: 13px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;">
+                    ❓ ${q.question}
+                </div>
+                <div style="font-size: 11px; color: var(--text-secondary);">
+                    💡 คำตอบที่ถูกต้อง: <strong style="color: var(--accent-mint);">${correctOpt}</strong>
+                </div>
+                ${statusHtml}
+            `;
+            container.appendChild(card);
+        });
+    }
+
     renderActivityLogs() {
         const data = window.appStorage.getLocalData();
         const container = document.getElementById('activityHistoryList');
@@ -1006,16 +1445,17 @@ class AppController {
         if (!container) return;
         container.innerHTML = '';
         const data = window.appStorage.getLocalData();
-        const currentBreed = (data.cat && data.cat.breed) ? data.cat.breed : null;
 
-        CAT_BREEDS.forEach(b => {
+        // 10 Cat Breeds Informational Catalog List (Read-Only)
+        const currentBreed = (data.cat && data.cat.isRevealed) ? data.cat.breed : null;
+        CAT_BREEDS.filter(b => b.id !== 'mystery_kitten').forEach(b => {
             const item = document.createElement('div');
             const isSelected = b.id === currentBreed;
             item.style.background = isSelected ? 'var(--card-tint-peach)' : 'var(--bg-surface)';
             item.style.border = isSelected ? '2px solid var(--accent-coral)' : '1px solid var(--border-light)';
             item.style.borderRadius = 'var(--radius-md)';
             item.style.padding = '12px 14px';
-            item.style.cursor = 'pointer';
+            item.style.cursor = 'default';
 
             const mainFood = b.mainFoodReq || '2 มื้อ/วัน 🐟';
             const treat = b.treatReq || '1 ซอง/วัน 💖';
@@ -1023,8 +1463,11 @@ class AppController {
 
             item.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <strong style="font-size: 14px; color: var(--text-primary);">${b.name}</strong>
-                    ${isSelected ? `<span class="tree-badge-pill" style="font-size: 10px;">กำลังเลี้ยงอยู่</span>` : ''}
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 18px;">${b.badge || '🐾'}</span>
+                        <strong style="font-size: 13.5px; color: var(--text-primary);">${b.name}</strong>
+                    </div>
+                    ${isSelected ? `<span class="tree-badge-pill" style="font-size: 10px;">สายพันธุ์ของน้อง</span>` : `<span style="font-size: 10px; color: var(--text-muted); background: var(--bg-subtle); padding: 2px 6px; border-radius: 4px;">ข้อมูลสายพันธุ์</span>`}
                 </div>
                 <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">${b.tagline}</p>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 10.5px; color: var(--text-muted);">
@@ -1037,56 +1480,15 @@ class AppController {
                     🎁 ${b.specialBonus}
                 </div>
             `;
-
-            item.addEventListener('click', () => this.selectCatBreed(b.id));
             container.appendChild(item);
         });
     }
 
     openCatAdoptionModal() {
-        const container = document.getElementById('adoptBreedGrid');
-        if (!container) return;
-        container.innerHTML = '';
-
-        CAT_BREEDS.forEach((breed) => {
-            const card = document.createElement('div');
-            const isSelected = breed.id === (this.selectedAdoptBreed || 'orange_tabby');
-            card.className = `cat-breed-card ${isSelected ? 'selected' : ''}`;
-            card.setAttribute('data-breed-id', breed.id);
-
-            card.innerHTML = `
-                <div class="cat-breed-thumb">${breed.badge}</div>
-                <div class="cat-breed-name">${breed.name}</div>
-                <div class="cat-breed-tagline">${breed.tagline}</div>
-                <div class="cat-breed-bonus">🎁 ${breed.specialBonus}</div>
-            `;
-
-            card.addEventListener('click', () => {
-                this.selectedAdoptBreed = breed.id;
-                const allCards = container.querySelectorAll('.cat-breed-card');
-                allCards.forEach(c => c.classList.remove('selected'));
-                card.classList.add('selected');
-                window.soundManager.playClick();
-
-                const input = document.getElementById('adoptCatNameInput');
-                if (input && (!input.value || input.value.startsWith('น้อง'))) {
-                    input.value = `น้อง${breed.name.split(' ')[0]}`;
-                }
-
-                // Live 3D preview
-                if (this.garden3D) {
-                    this.garden3D.buildCat(breed.id, 0);
-                }
-            });
-
-            container.appendChild(card);
-        });
-
         const defaultInput = document.getElementById('adoptCatNameInput');
         if (defaultInput && !defaultInput.value) {
-            defaultInput.value = 'น้องส้มจี๊ด';
+            defaultInput.value = 'น้องเหมียวปริศนา';
         }
-
         this.openModal('modalCatAdoption');
     }
 
@@ -1096,16 +1498,15 @@ class AppController {
             return;
         }
 
-        const breedId = this.selectedAdoptBreed || 'orange_tabby';
         const nameInput = document.getElementById('adoptCatNameInput');
-        const catName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : 'น้องส้มจี๊ด';
+        const catName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : 'น้องเหมียวปริศนา';
 
         if (!window.appStorage) {
             Swal.fire({ title: 'เกิดข้อผิดพลาด', text: 'ระบบจัดเก็บข้อมูลไม่พร้อมใช้งาน', icon: 'error' });
             return;
         }
 
-        window.appStorage.adoptCat(breedId, catName, this.currentUser);
+        window.appStorage.adoptCat(catName, this.currentUser);
         this.closeModal('modalCatAdoption');
 
         if (window.soundManager) window.soundManager.playReward();
@@ -1117,10 +1518,10 @@ class AppController {
         this.renderAll();
 
         Swal.fire({
-            title: `ยินดีต้อนรับ ${catName}! 🐾💖`,
-            text: `คุณและแฟนได้รับเลี้ยงน้องแมวเรียบร้อยแล้ว ดูแลน้องด้วยกันทุกวันนะ!`,
+            title: `🎁 สุ่มรับเลี้ยง ${catName} สำเร็จ! 🐾`,
+            text: `ลูกแมวน้อยเข้ามาอยู่ในบ้านแล้ว! สายพันธุ์จะถูกเก็บเป็นความลับจนกว่าคุณทั้งสองจะช่วยกันดูแลจนครบ 2 เดือน (60 วัน) ถึงจะเฉลยนะจ๊ะ!`,
             icon: 'success',
-            confirmButtonText: 'เริ่มดูแลน้องเลย'
+            confirmButtonText: 'เริ่มดูแลลูกแมวน้อยเลย'
         });
     }
 
@@ -1128,12 +1529,22 @@ class AppController {
     // User Action Handlers (Feeding, Treats, Grooming, Vaccine)
     // -------------------------------------------------------------------------
 
-    // 1. Feed Main Meal
+    // 1. Feed Main Meal (Blocked if fullness is 100%)
     feedCatMainMeal() {
         const data = window.appStorage.getLocalData();
         if (!data.cat) {
             this.showToast('โปรดรับเลี้ยงน้องแมวก่อนเริ่มดูแลนะ 🐾');
             this.openCatAdoptionModal();
+            return;
+        }
+
+        // Anti-spam cap: Cannot feed if fullness is 100%
+        if (data.cat.fullnessLevel >= 100) {
+            Swal.fire({
+                title: 'น้องแมวอิ่มท้อง 100% แล้ว! 🐟',
+                text: 'น้องแมวกินอิ่มแปล้พุงกางแล้ว ไม่สามารถป้อนอาหารเพิ่มได้ รอให้น้องย่อยก่อนนะจ๊ะ (กันการอัดของทำคะแนน)',
+                icon: 'info'
+            });
             return;
         }
 
@@ -1170,20 +1581,44 @@ class AppController {
         data.cat.totalFed = (data.cat.totalFed || 0) + 1;
         me.points += 15;
 
+        // Cumulative Daily Care & 1-Month Bonding Tracking
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (!data.dailyCare) data.dailyCare = {};
+        if (!data.dailyCare[todayStr]) data.dailyCare[todayStr] = {};
+        if (!data.dailyCare[todayStr][this.currentUser]) data.dailyCare[todayStr][this.currentUser] = { food: 0, treats: 0, health: 0, playTime: 0 };
+        data.dailyCare[todayStr][this.currentUser].food = (data.dailyCare[todayStr][this.currentUser].food || 0) + 1;
+
+        if (data.cat.bondingScores && data.cat.bondingScores[this.currentUser]) {
+            data.cat.bondingScores[this.currentUser].food = (data.cat.bondingScores[this.currentUser].food || 0) + 1;
+        }
+
         window.appStorage.saveLocalData(data);
         window.appStorage.logActivity(this.currentUser, me.name, 'ให้อาหารหลักน้องแมว 🐟', 'ให้อาหารเปียกปลาแซลมอน เพิ่มความอิ่ม +25%');
 
         if (this.garden3D) this.garden3D.triggerFeedAnimation();
 
+        this.syncGardenState();
+        this.updateHeaderPoints();
+
         this.showToast(`ให้อาหารหลักเรียบร้อย! 🐟 ความอิ่ม +25% (+15 แต้ม)`);
     }
 
-    // 2. Give Creamy Treat
+    // 2. Give Creamy Treat (Blocked if affection is 100%)
     giveCatTreat() {
         const data = window.appStorage.getLocalData();
         if (!data.cat) {
             this.showToast('โปรดรับเลี้ยงน้องแมวก่อนเริ่มดูแลนะ 🐾');
             this.openCatAdoptionModal();
+            return;
+        }
+
+        // Anti-spam cap: Cannot give creamy treat if affection is 100%
+        if (data.cat.affectionLevel >= 100) {
+            Swal.fire({
+                title: 'ความสุขผูกพันเต็ม 100% แล้ว! 💖',
+                text: 'น้องแมวได้รับความรักและความสุขเต็มเปี่ยมแล้ว ไม่สามารถให้ขนมแมวเลียเพิ่มได้จ้า (กันการอัดของทำคะแนน)',
+                icon: 'info'
+            });
             return;
         }
 
@@ -1219,20 +1654,44 @@ class AppController {
         data.cat.totalTreated = (data.cat.totalTreated || 0) + 1;
         me.points += 20;
 
+        // Cumulative Daily Care & 1-Month Bonding Tracking
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (!data.dailyCare) data.dailyCare = {};
+        if (!data.dailyCare[todayStr]) data.dailyCare[todayStr] = {};
+        if (!data.dailyCare[todayStr][this.currentUser]) data.dailyCare[todayStr][this.currentUser] = { food: 0, treats: 0, health: 0, playTime: 0 };
+        data.dailyCare[todayStr][this.currentUser].treats = (data.dailyCare[todayStr][this.currentUser].treats || 0) + 1;
+
+        if (data.cat.bondingScores && data.cat.bondingScores[this.currentUser]) {
+            data.cat.bondingScores[this.currentUser].treats = (data.cat.bondingScores[this.currentUser].treats || 0) + 1;
+        }
+
         window.appStorage.saveLocalData(data);
         window.appStorage.logActivity(this.currentUser, me.name, 'ให้ขนมแมวเลีย 💖', 'ป้อนแมวเลียรสทูน่า เพิ่มความผูกพัน +30%');
 
         if (this.garden3D) this.garden3D.triggerTreatAnimation();
 
+        this.syncGardenState();
+        this.updateHeaderPoints();
+
         this.showToast(`ป้อนแมวเลียสำเร็จ! 💖 ความสุขผูกพัน +30% (+20 แต้ม)`);
     }
 
-    // 3. Cure Vaccine or Grooming
+    // 3. Cure Vaccine or Grooming (Blocked if health is 100% and no fever or long nails)
     cureObstacles(isVaccine) {
         const data = window.appStorage.getLocalData();
         if (!data.cat) {
             this.showToast('โปรดรับเลี้ยงน้องแมวก่อนเริ่มดูแลนะ 🐾');
             this.openCatAdoptionModal();
+            return;
+        }
+
+        // Anti-spam cap: Cannot cure/groom if health is 100% and no symptoms
+        if (data.cat.health >= 100 && !data.cat.hasFever && !data.cat.hasLongNails) {
+            Swal.fire({
+                title: 'สุขภาพกายน้องแมวเต็ม 100% แล้ว! ✨',
+                text: 'น้องแมวมีสุขภาพแข็งแรง ขนสวยเล็บเรียบร้อยดีแล้ว ไม่จำเป็นต้องฉีดวัคซีนหรือตัดขนตัดเล็บเพิ่มจ้า (กันการอัดของทำคะแนน)',
+                icon: 'info'
+            });
             return;
         }
 
@@ -1274,6 +1733,17 @@ class AppController {
         data.cat.health = 100;
         me.points += 30;
 
+        // Cumulative Daily Care & 1-Month Bonding Tracking
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (!data.dailyCare) data.dailyCare = {};
+        if (!data.dailyCare[todayStr]) data.dailyCare[todayStr] = {};
+        if (!data.dailyCare[todayStr][this.currentUser]) data.dailyCare[todayStr][this.currentUser] = { food: 0, treats: 0, health: 0, playTime: 0 };
+        data.dailyCare[todayStr][this.currentUser].health = (data.dailyCare[todayStr][this.currentUser].health || 0) + 1;
+
+        if (data.cat.bondingScores && data.cat.bondingScores[this.currentUser]) {
+            data.cat.bondingScores[this.currentUser].health = (data.cat.bondingScores[this.currentUser].health || 0) + 1;
+        }
+
         window.appStorage.saveLocalData(data);
         window.appStorage.logActivity(this.currentUser, me.name, isVaccine ? 'พาไปฉีดวัคซีน 💉' : 'ตัดขนและตัดเล็บ ✂️', isVaccine ? 'รักษาไข้หวัด สุขภาพกลับมาเต็ม 100%' : 'ตัดเล็บแหลมและแปรงขนเรียบร้อย');
 
@@ -1285,6 +1755,9 @@ class AppController {
             }
             this.garden3D.setSicknessState(data.cat.hasFever, data.cat.hasLongNails);
         }
+
+        this.syncGardenState();
+        this.updateHeaderPoints();
 
         Swal.fire({
             title: 'ดูแลสำเร็จ! 🐾✨',
@@ -1336,13 +1809,37 @@ class AppController {
             return;
         }
 
+        // 1. Deduct points immediately
         me.points -= item.cost;
-        data.inventory[item.id] = (data.inventory[item.id] || 0) + 1;
-        window.appStorage.saveLocalData(data);
-        window.appStorage.logActivity(this.currentUser, me.name, `แลกซื้อ ${item.name}`, `ใช้ ${item.cost} แต้มความรัก`);
 
+        // 2. Add item to general inventory (food, treats, vaccine, grooming_kit, toys)
+        if (!data.inventory) data.inventory = {};
+        data.inventory[item.id] = (data.inventory[item.id] || 0) + 1;
+
+        // 3. If item is a cat toy, also add to toyInventory
+        if (!data.toyInventory) data.toyInventory = {};
+        if (item.id.startsWith('cat_toy_')) {
+            data.toyInventory[item.id] = (data.toyInventory[item.id] || 0) + 1;
+        }
+
+        // 4. Save data & log
+        window.appStorage.saveLocalData(data);
+        window.appStorage.logActivity(this.currentUser, me.name, `แลกซื้อ ${item.name}`, `ใช้ ${item.cost} แต้มความรัก (ตัดแต้มและเพิ่มของเข้าคลังทันที)`);
+
+        // 5. Sound & immediate UI refresh
         window.soundManager.playSuccess();
-        this.showToast(`แลกซื้อ ${item.name} สำเร็จ! เหลือแต้ม ${me.points} ⭐`);
+        this.updateHeaderPoints();
+        this.syncGardenState();
+        this.renderQuestsView();
+        if (typeof this.updateNavBadges === 'function') this.updateNavBadges();
+
+        Swal.fire({
+            title: 'แลกของสำเร็จ! 🛍️✨',
+            text: `แลกซื้อ "${item.name}" สำเร็จ! ตัด ${item.cost} แต้ม และเพิ่มของเข้าคลังทันที (คงเหลือ ${me.points} แต้ม ⭐)`,
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+        });
     }
 
     // 6. Edit Meal
@@ -1407,6 +1904,8 @@ class AppController {
 
     saveNote(noteId, title, content, category, remindAt) {
         const data = window.appStorage.getLocalData();
+        const todayStr = new Date().toISOString().split('T')[0];
+
         if (noteId) {
             const note = data.notes.find(n => n.id === noteId);
             if (note) {
@@ -1416,7 +1915,8 @@ class AppController {
                 note.remindAt = remindAt;
                 note.updatedBy = this.currentUser;
                 note.updatedAt = new Date().toISOString();
-                window.appStorage.logActivity(this.currentUser, data.users[this.currentUser].name, 'แก้ไขโน้ต', `แก้ไข: ${title}`);
+                data.users[this.currentUser].points += 15;
+                window.appStorage.logActivity(this.currentUser, data.users[this.currentUser].name, 'แก้ไขโน้ต', `แก้ไข: ${title} (+15 แต้ม)`);
             }
         } else {
             const newNote = {
@@ -1425,17 +1925,32 @@ class AppController {
                 content: content,
                 category: category,
                 remindAt: remindAt,
+                author: this.currentUser,
+                createdAt: new Date().toISOString(),
                 updatedBy: this.currentUser,
                 updatedAt: new Date().toISOString()
             };
             data.notes.unshift(newNote);
             data.users[this.currentUser].points += 20;
-            window.appStorage.logActivity(this.currentUser, data.users[this.currentUser].name, 'สร้างโน้ตใหม่', `สร้าง: ${title}`);
+            window.appStorage.logActivity(this.currentUser, data.users[this.currentUser].name, 'สร้างโน้ตใหม่', `สร้าง: ${title} (+20 แต้ม)`);
         }
+
+        // Daily Quest Note Completion: Triggered for both creating & editing
+        if (!data.dailyCare) data.dailyCare = {};
+        if (!data.dailyCare[todayStr]) data.dailyCare[todayStr] = {};
+        if (!data.dailyCare[todayStr][this.currentUser]) {
+            data.dailyCare[todayStr][this.currentUser] = { food: 0, treats: 0, health: 0, playTime: 0 };
+        }
+        data.dailyCare[todayStr][this.currentUser].noteAction = true;
+
         window.appStorage.saveLocalData(data);
-        window.soundManager.playSuccess();
+        if (window.soundManager) window.soundManager.playSuccess();
         this.closeModal('modalNewNote');
-        this.showToast('บันทึกข้อมูลโน้ตสำเร็จ');
+        this.updateHeaderPoints();
+        this.renderNotesView();
+        this.renderQuestsView();
+        if (typeof this.updateNavBadges === 'function') this.updateNavBadges();
+        this.showToast('บันทึกข้อมูลโน้ตสำเร็จ (ทำภารกิจโน้ตเรียบร้อย ✨)');
     }
 
     deleteNote(noteId) {
@@ -1451,6 +1966,7 @@ class AppController {
                 const data = window.appStorage.getLocalData();
                 data.notes = data.notes.filter(n => n.id !== noteId);
                 window.appStorage.saveLocalData(data);
+                this.renderNotesView();
                 this.showToast('ลบโน้ตเรียบร้อยแล้ว');
             }
         });
@@ -1475,6 +1991,17 @@ class AppController {
 
         const data = window.appStorage.getLocalData();
         const todayStr = new Date().toISOString().split('T')[0];
+
+        // Strict limit: strictly once per day per user
+        if (data.calendarMoods && data.calendarMoods[todayStr] && data.calendarMoods[todayStr][this.currentUser]) {
+            Swal.fire({
+                title: 'บันทึกไปแล้วในวันนี้ 🌙',
+                text: 'คุณได้ส่งความรู้สึกบอกฝันดีของวันนี้เรียบร้อยแล้ว บันทึกได้เพียง 1 ครั้งต่อวันเท่านั้นจ้า',
+                icon: 'info'
+            });
+            return;
+        }
+
         if (!data.calendarMoods[todayStr]) data.calendarMoods[todayStr] = {};
 
         const moodLabels = {
@@ -1528,36 +2055,93 @@ class AppController {
     }
 
     // 10. Quiz (Daily 1-Question Limit)
+    // 10. Quiz (Daily 1-Question Limit - Max 2 Attempts)
     answerQuiz(quiz, optIdx, buttonElement) {
-        if (quiz.completedBy && quiz.completedBy.includes(this.currentUser)) return;
+        if (quiz.creator === this.currentUser) {
+            Swal.fire({
+                title: 'ไม่สามารถตอบคำถามของตนเองได้ 🔒',
+                text: 'คุณเป็นผู้สร้างคำถามข้อนี้ ต้องรอให้อีกฝ่ายเป็นคนตอบเท่านั้นนะค้าบ',
+                icon: 'warning'
+            });
+            return;
+        }
 
-        const isCorrect = optIdx === quiz.correctIndex;
+        const data = window.appStorage.getLocalData();
+        const target = data.quizzes.find(q => q.id === quiz.id);
+        if (!target) return;
+
+        if (!target.completedBy) target.completedBy = [];
+        if (!target.userAttempts) target.userAttempts = {};
+        if (!target.wrongPicks) target.wrongPicks = {};
+        if (!target.pointsAwarded) target.pointsAwarded = {};
+
+        if (target.completedBy.includes(this.currentUser)) return;
+
+        const currentAttempts = target.userAttempts[this.currentUser] || 0;
+        const newAttempts = currentAttempts + 1;
+        target.userAttempts[this.currentUser] = newAttempts;
+
+        const isCorrect = optIdx === target.correctIndex;
+
         if (isCorrect) {
-            buttonElement.classList.add('correct-choice');
-            window.soundManager.playReward();
-            if (typeof confetti === 'function') confetti({ particleCount: 50, spread: 45 });
+            target.completedBy.push(this.currentUser);
+            // 1st attempt = 100%, 2nd attempt = 50%
+            const pointsWon = newAttempts === 1 ? target.reward : Math.floor(target.reward / 2);
+            target.pointsAwarded[this.currentUser] = pointsWon;
+            data.users[this.currentUser].points += pointsWon;
 
-            const data = window.appStorage.getLocalData();
-            const target = data.quizzes.find(q => q.id === quiz.id);
-            if (target) {
-                if (!target.completedBy) target.completedBy = [];
-                target.completedBy.push(this.currentUser);
-                data.users[this.currentUser].points += quiz.reward;
-                window.appStorage.saveLocalData(data);
-                window.appStorage.logActivity(this.currentUser, data.users[this.currentUser].name, 'ตอบควิซประจำวันถูกต้อง 🎯', `รับรางวัล +${quiz.reward} แต้ม`);
-            }
+            window.appStorage.saveLocalData(data);
+            window.appStorage.logActivity(
+                this.currentUser, 
+                data.users[this.currentUser].name, 
+                `ตอบควิซประจำวันถูกต้อง (${newAttempts === 1 ? 'ครั้งแรก เต็ม 100%' : 'ครั้งที่สอง 50%'}) 🎯`, 
+                `รับรางวัล +${pointsWon} แต้ม`
+            );
+
+            window.soundManager.playReward();
+            if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 50 });
 
             Swal.fire({
-                title: 'ตอบถูกต้องนะค้าบ! 🎉',
-                text: `รู้ใจแฟนที่สุด! รับแต้มสะสม +${quiz.reward} แต้ม`,
+                title: newAttempts === 1 ? 'ตอบถูกในครั้งแรก! 🎉' : 'ตอบถูกในครั้งที่สอง! 👏',
+                text: `รู้ใจแฟนที่สุด! ได้รับแต้มสะสม +${pointsWon} แต้ม (${newAttempts === 1 ? 'คะแนนเต็ม 100%' : 'คะแนนครึ่งนึง 50%'})`,
                 icon: 'success',
-                timer: 2000,
+                timer: 2800,
                 showConfirmButton: false
             });
+
+            this.renderQuizView();
         } else {
-            buttonElement.classList.add('wrong-choice');
-            window.soundManager.playError();
-            this.showToast('ยังไม่ถูกต้องน้า ลองนึกดูดีๆ อีกที!');
+            if (!target.wrongPicks[this.currentUser]) target.wrongPicks[this.currentUser] = [];
+            target.wrongPicks[this.currentUser].push(optIdx);
+
+            if (newAttempts === 1) {
+                // First wrong pick - give second chance
+                window.appStorage.saveLocalData(data);
+                window.soundManager.playError();
+                
+                Swal.fire({
+                    title: 'ยังไม่ถูกต้องนะค้าบ 💡',
+                    text: `เหลือโอกาสเลือกอีก 1 ครั้ง! ถ้าตอบถูกในครั้งที่สองจะได้คะแนนครึ่งนึง (+${Math.floor(target.reward / 2)} แต้ม)`,
+                    icon: 'info',
+                    confirmButtonText: 'ลองตอบใหม่อีกครั้ง'
+                });
+
+                this.renderQuizView();
+            } else {
+                // Second wrong pick - failed, reveal answer
+                target.completedBy.push(this.currentUser);
+                target.pointsAwarded[this.currentUser] = 0;
+                window.appStorage.saveLocalData(data);
+                window.soundManager.playError();
+
+                Swal.fire({
+                    title: 'ตอบไม่ถูกต้องทั้ง 2 ครั้ง 😢',
+                    html: `เสียดายจัง ไม่ได้รับแต้มในรอบนี้<br><br>💡 <strong>เฉลยที่ถูกต้อง:</strong> ข้อ ${target.correctIndex + 1}. <span style="color: #2E7D32; font-weight: 700;">${target.options[target.correctIndex]}</span>`,
+                    icon: 'warning'
+                });
+
+                this.renderQuizView();
+            }
         }
     }
 
@@ -1745,11 +2329,17 @@ class AppController {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.add('open');
-            window.soundManager.playClick();
+            if (window.soundManager && typeof window.soundManager.playClick === 'function') {
+                try { window.soundManager.playClick(); } catch (e) { /* ignore sound error */ }
+            }
         }
     }
 
     closeModal(modalId) {
+        if (!modalId) {
+            document.querySelectorAll('.custom-modal-backdrop.open').forEach(m => m.classList.remove('open'));
+            return;
+        }
         const modal = document.getElementById(modalId);
         if (modal) modal.classList.remove('open');
     }
@@ -1757,6 +2347,7 @@ class AppController {
     updateMealPartnerTabs() {
         const tabNether = document.getElementById('mealTabNether');
         const tabPooja = document.getElementById('mealTabPooja');
+        if (!tabNether || !tabPooja) return;
 
         if (this.currentMealPartner === 'nether') {
             tabNether.classList.add('active-tab');
@@ -1973,17 +2564,822 @@ class AppController {
     }
 
     // -------------------------------------------------------------------------
+    // Cat Play, Monthly Report, Renaming, Collection, Breeding & History Handlers
+    // -------------------------------------------------------------------------
+    openCatPlayModal() {
+        const data = window.appStorage.getLocalData();
+        if (!data.cat) {
+            Swal.fire('ยังไม่มีน้องแมว 🐱', 'กรุณารับเลี้ยงน้องแมวก่อนเล่นน้า', 'info');
+            return;
+        }
+
+        const userPlaySecs = (data.cat.playTime && data.cat.playTime[this.currentUser]) || 0;
+        const mins = Math.floor(userPlaySecs / 60);
+        const secs = userPlaySecs % 60;
+        const timeDisplay = document.getElementById('userPlayTimeDisplay');
+        if (timeDisplay) timeDisplay.innerText = `${mins} นาที ${secs} วินาที`;
+
+        const grid = document.getElementById('playToySelectGrid');
+        if (grid) {
+            grid.innerHTML = '';
+
+            // Check 1-hour cooldown for hands / chin scratch
+            const lastHandsTime = (data.cat && data.cat.lastHandsPlay && data.cat.lastHandsPlay[this.currentUser]) || 0;
+            const elapsedHands = Date.now() - lastHandsTime;
+            const cooldownMs = 60 * 60 * 1000;
+            const isHandsReady = elapsedHands >= cooldownMs;
+            const minsLeft = Math.max(1, Math.ceil((cooldownMs - elapsedHands) / 60000));
+            const handsStatusLabel = isHandsReady ? 'พร้อมเกาคาง (+25 แต้ม)' : `รออีก ${minsLeft} น. ⏳`;
+
+            const toys = [
+                { id: 'hands', name: '🖐️ มือเปล่า / เกาคาง', icon: '🖐️', count: handsStatusLabel, isAction: true },
+                { id: 'cat_toy_feather', name: '🪶 ไม้ล่อขนนก', icon: '🪶', count: (data.toyInventory && data.toyInventory.cat_toy_feather) || 0 },
+                { id: 'cat_toy_yarn', name: '🧶 ไหมพรมกลิ้ง', icon: '🧶', count: (data.toyInventory && data.toyInventory.cat_toy_yarn) || 0 },
+                { id: 'cat_toy_laser', name: '✨ เลเซอร์ดาว', icon: '✨', count: (data.toyInventory && data.toyInventory.cat_toy_laser) || 0 }
+            ];
+
+            // NO DEFAULT STUCK HIGHLIGHT!
+            this.activePlayToy = null;
+
+            toys.forEach(t => {
+                const item = document.createElement('div');
+                item.className = 'toy-select-card';
+                item.style.cssText = 'padding: 8px 10px; border: 1.5px solid var(--border-light); border-radius: 8px; cursor: pointer; background: #fff; display: flex; align-items: center; gap: 8px; font-size: 11.5px; transition: all 0.2s;';
+                
+                const countColor = t.isAction ? (isHandsReady ? '#2E7D32' : '#E65100') : 'var(--text-secondary)';
+                item.innerHTML = `
+                    <span style="font-size: 20px;">${t.icon}</span>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${t.name}</div>
+                        <div style="font-size: 10px; color: ${countColor}; font-weight: ${t.isAction ? '700' : 'normal'};">${t.isAction ? t.count : 'คงเหลือ: ' + t.count}</div>
+                    </div>
+                `;
+
+                item.addEventListener('click', () => {
+                    if (t.id === 'hands') {
+                        this.playHandsImmediate();
+                        return;
+                    }
+                    this.activePlayToy = t.id;
+                    grid.querySelectorAll('.toy-select-card').forEach(c => {
+                        c.style.borderColor = 'var(--border-light)';
+                        c.style.background = '#fff';
+                        c.classList.remove('selected-toy');
+                    });
+                    item.style.borderColor = '#FF6B4A';
+                    item.style.background = '#FFF3E0';
+                    item.classList.add('selected-toy');
+                    window.soundManager.playClick();
+                });
+                grid.appendChild(item);
+            });
+        }
+
+        if (this.activePlayTimer) clearInterval(this.activePlayTimer);
+        this.activePlayTimer = null;
+        this.activePlaySeconds = 0;
+        const timerEl = document.getElementById('playSessionTimer');
+        if (timerEl) timerEl.innerText = '00:00';
+        const statusEl = document.getElementById('playStageStatus');
+        if (statusEl) statusEl.innerText = 'เลือกของเล่นแล้วกดปุ่มเริ่มเล่น หรือกดการ์ดมือเปล่าเพื่อเกาคางทันที';
+        const animEl = document.getElementById('playStageAnimation');
+        if (animEl) animEl.innerText = '🐾✨';
+
+        const startBtn = document.getElementById('startPlaySessionBtn');
+        const stopBtn = document.getElementById('stopPlaySessionBtn');
+        if (startBtn) startBtn.style.display = 'block';
+        if (stopBtn) stopBtn.style.display = 'none';
+
+        this.openModal('modalCatPlay');
+    }
+
+    playHandsImmediate() {
+        const data = window.appStorage.getLocalData();
+        if (!data.cat) return;
+
+        if (!data.cat.lastHandsPlay) data.cat.lastHandsPlay = {};
+        const lastTime = data.cat.lastHandsPlay[this.currentUser] || 0;
+        const elapsed = Date.now() - lastTime;
+        const cooldownMs = 60 * 60 * 1000;
+
+        if (elapsed < cooldownMs) {
+            const minsLeft = Math.max(1, Math.ceil((cooldownMs - elapsed) / 60000));
+            window.soundManager.playError();
+            Swal.fire({
+                title: 'เกาคางได้ 1 ชั่วโมงต่อครั้ง ⏳',
+                text: `น้องแมวเพิ่งได้รับการเกาคางไป สามารถเกาคางได้อีกครั้งในอีก ${minsLeft} นาทีค้าบ`,
+                icon: 'info',
+                confirmButtonText: 'รับทราบ'
+            });
+            return;
+        }
+
+        // Grant 25 points immediately!
+        data.cat.lastHandsPlay[this.currentUser] = Date.now();
+        data.users[this.currentUser].points += 25;
+        data.cat.affectionLevel = Math.min(100, (data.cat.affectionLevel || 50) + 15);
+        data.cat.happiness = Math.min(100, (data.cat.happiness || 50) + 10);
+
+        if (!data.cat.playTime) data.cat.playTime = { nether: 0, Pooja: 0 };
+        data.cat.playTime[this.currentUser] = (data.cat.playTime[this.currentUser] || 0) + 60;
+
+        if (!data.cat.bondingScores) {
+            data.cat.bondingScores = {
+                nether: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 },
+                Pooja: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 }
+            };
+        }
+        if (!data.cat.bondingScores[this.currentUser]) {
+            data.cat.bondingScores[this.currentUser] = { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 };
+        }
+        data.cat.bondingScores[this.currentUser].playTime += 60;
+
+        const today = new Date().toISOString().split('T')[0];
+        if (!data.dailyCare) data.dailyCare = {};
+        if (!data.dailyCare[today]) data.dailyCare[today] = { foodBy: {}, treatBy: {}, healthBy: {}, playBy: {} };
+        if (!data.dailyCare[today].playBy) data.dailyCare[today].playBy = {};
+        data.dailyCare[today].playBy[this.currentUser] = true;
+
+        if (!data.dailyCare[today][this.currentUser]) {
+            data.dailyCare[today][this.currentUser] = { food: 0, treats: 0, health: 0, playTime: 0 };
+        }
+        data.dailyCare[today][this.currentUser].playTime = (data.dailyCare[today][this.currentUser].playTime || 0) + 60;
+
+        window.appStorage.saveLocalData(data);
+        window.appStorage.logActivity(
+            this.currentUser,
+            data.users[this.currentUser].name,
+            'มือเปล่า / เกาคางน้องแมว 🖐️',
+            'เกาคางน้องแมวฟินๆ ได้รับคะแนนทันที +25 แต้ม (คูลดาวน์ 1 ชม.)'
+        );
+
+        window.soundManager.playReward();
+        if (window.soundManager.playCatVoice) {
+            window.soundManager.playCatVoice(data.cat.breed || 'orange_tabby', 'purr');
+        }
+        if (this.garden3D && typeof this.garden3D.triggerPlayToy === 'function') {
+            this.garden3D.triggerPlayToy('hands');
+        }
+        if (typeof confetti === 'function') confetti({ particleCount: 50, spread: 50 });
+
+        this.updateHeaderPoints();
+        this.syncGardenState();
+        this.renderQuestsView();
+        if (typeof this.updateNavBadges === 'function') this.updateNavBadges();
+
+        const statusEl = document.getElementById('playStageStatus');
+        if (statusEl) statusEl.innerText = 'เกาคางน้องแมวฟินๆ สำเร็จ! ได้รับ +25 แต้มทันที (คูลดาวน์ 1 ชม.)';
+        const animEl = document.getElementById('playStageAnimation');
+        if (animEl) animEl.innerText = '😻 Purrr~';
+
+        Swal.fire({
+            title: 'เกาคางฟินเวอร์! 🖐️🐱💖',
+            text: 'น้องแมวชอบมาก ครางเพอร์เบาๆ ได้รับคะแนนทันที +25 แต้ม! (เล่นได้อีกครั้งในอีก 1 ชั่วโมง)',
+            icon: 'success',
+            timer: 2300,
+            showConfirmButton: false
+        });
+
+        // Refresh play modal to reflect cooldown status
+        this.openCatPlayModal();
+    }
+
+    startPlaySession() {
+        const data = window.appStorage.getLocalData();
+        if (!data.cat) return;
+
+        if (!this.activePlayToy || this.activePlayToy === 'hands') {
+            Swal.fire({
+                title: 'กรุณาเลือกของเล่น 🧶',
+                text: 'สำหรับการเล่นจับเวลา ให้เลือกไม้ล่อขนนก ไหมพรม หรือเลเซอร์ (สำหรับมือเปล่า/เกาคางสามารถคลิกที่การ์ดเพื่อรับ 25 แต้มได้ทันที)',
+                icon: 'info'
+            });
+            return;
+        }
+
+        if (this.activePlayToy && this.activePlayToy !== 'hands') {
+            const count = (data.toyInventory && data.toyInventory[this.activePlayToy]) || 0;
+            if (count <= 0) {
+                Swal.fire({
+                    title: 'ของเล่นชิ้นนี้หมด 🛒',
+                    text: 'คุณสามารถไปแลกของเล่นใหม่ได้ในร้านค้า หรือเลือกเล่นมือเปล่าก่อนได้นะค้าบ',
+                    icon: 'warning'
+                });
+                return;
+            }
+        }
+
+        const startBtn = document.getElementById('startPlaySessionBtn');
+        const stopBtn = document.getElementById('stopPlaySessionBtn');
+        if (startBtn) startBtn.style.display = 'none';
+        if (stopBtn) stopBtn.style.display = 'block';
+
+        this.activePlaySeconds = 0;
+        const statusEl = document.getElementById('playStageStatus');
+        if (statusEl) statusEl.innerText = 'กำลังเล่นกับน้องแมวอย่างเพลิดเพลิน... ดุ๊กดิ๊กๆ 🐱💖';
+
+        if (this.garden3D && typeof this.garden3D.triggerPlayToy === 'function') {
+            this.garden3D.triggerPlayToy(this.activePlayToy || 'hands');
+        }
+
+        window.soundManager.playClick();
+        if (window.soundManager.playCatVoice) {
+            window.soundManager.playCatVoice(data.cat.breed || 'orange_tabby', 'purr');
+        }
+
+        if (this.activePlayTimer) clearInterval(this.activePlayTimer);
+        this.activePlayTimer = setInterval(() => {
+            this.activePlaySeconds++;
+            const m = String(Math.floor(this.activePlaySeconds / 60)).padStart(2, '0');
+            const s = String(this.activePlaySeconds % 60).padStart(2, '0');
+            const timerEl = document.getElementById('playSessionTimer');
+            if (timerEl) timerEl.innerText = `${m}:${s}`;
+
+            const animEl = document.getElementById('playStageAnimation');
+            if (animEl) {
+                const icons = ['🧶✨', '🐱💨', '🐾💖', '🪶✨', '⭐🐾', '🐟💕'];
+                animEl.innerText = icons[this.activePlaySeconds % icons.length];
+            }
+        }, 1000);
+    }
+
+    stopPlaySession() {
+        if (this.activePlayTimer) {
+            clearInterval(this.activePlayTimer);
+            this.activePlayTimer = null;
+        }
+
+        const duration = this.activePlaySeconds || 0;
+        if (duration < 2) {
+            Swal.fire('เล่นแป๊บเดียวเอง!', 'ลองเล่นกับน้องให้นานขึ้นอีกนิดเพื่อสะสมเวลาและแต้มน้า', 'info');
+            const startBtn = document.getElementById('startPlaySessionBtn');
+            const stopBtn = document.getElementById('stopPlaySessionBtn');
+            if (startBtn) startBtn.style.display = 'block';
+            if (stopBtn) stopBtn.style.display = 'none';
+            return;
+        }
+
+        const pointsEarned = Math.max(15, Math.floor(duration * 2));
+        const data = window.appStorage.getLocalData();
+        if (!data.cat.playTime) data.cat.playTime = { nether: 0, Pooja: 0 };
+        data.cat.playTime[this.currentUser] = (data.cat.playTime[this.currentUser] || 0) + duration;
+
+        if (!data.cat.bondingScores) {
+            data.cat.bondingScores = {
+                nether: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 },
+                Pooja: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 }
+            };
+        }
+        if (!data.cat.bondingScores[this.currentUser]) {
+            data.cat.bondingScores[this.currentUser] = { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 };
+        }
+        data.cat.bondingScores[this.currentUser].playTime += duration;
+
+        if (this.activePlayToy && this.activePlayToy !== 'hands') {
+            if (data.toyInventory && data.toyInventory[this.activePlayToy] > 0) {
+                data.toyInventory[this.activePlayToy]--;
+            }
+            data.cat.bondingScores[this.currentUser].toys = (data.cat.bondingScores[this.currentUser].toys || 0) + 1;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        if (!data.dailyCare) data.dailyCare = {};
+        if (!data.dailyCare[today]) data.dailyCare[today] = { foodBy: {}, treatBy: {}, healthBy: {}, playBy: {} };
+        if (!data.dailyCare[today].playBy) data.dailyCare[today].playBy = {};
+        data.dailyCare[today].playBy[this.currentUser] = true;
+
+        data.users[this.currentUser].points += pointsEarned;
+        data.cat.affectionLevel = Math.min(100, (data.cat.affectionLevel || 50) + 15);
+
+        window.appStorage.saveLocalData(data);
+        window.appStorage.logActivity(
+            this.currentUser,
+            data.users[this.currentUser].name,
+            `เล่นกับน้องแมว (${duration} วินาที) 🧶`,
+            `เวลาสะสมเพิ่ม +${duration} วิ, รับรางวัล +${pointsEarned} แต้ม`
+        );
+
+        window.soundManager.playReward();
+        if (typeof confetti === 'function') confetti({ particleCount: 50, spread: 50 });
+
+        Swal.fire({
+            title: 'เล่นกับน้องแมวเสร็จสิ้น! 🧶🎉',
+            html: `เล่นไปทั้งหมด: <strong>${duration} วินาที</strong><br>ได้รับแต้มสะสม: <strong style="color: #E65100;">+${pointsEarned} แต้ม</strong> 🌟<br>ระดับความผูกพันน้องแมวเพิ่มขึ้น!`,
+            icon: 'success'
+        });
+
+        this.closeModal('modalCatPlay');
+        this.syncGardenState();
+        this.updateHeaderPoints();
+        this.renderQuestsView();
+        if (typeof this.updateNavBadges === 'function') this.updateNavBadges();
+    }
+
+    openMonthlyBondReportModal() {
+        const data = window.appStorage.getLocalData();
+        if (!data.cat) {
+            Swal.fire('ยังไม่มีน้องแมว 🐱', 'กรุณารับเลี้ยงน้องแมวก่อนดูรายงานน้า', 'info');
+            return;
+        }
+
+        const scores = data.cat.bondingScores || {};
+        const nether = scores.nether || { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 };
+        const pooja = scores.Pooja || { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 };
+
+        const calcTotal = (s) => (s.food * 10) + (s.treats * 15) + (s.toys * 20) + (s.health * 25) + Math.floor((s.playTime || 0) / 60 * 10);
+        const netherTotal = calcTotal(nether);
+        const poojaTotal = calcTotal(pooja);
+
+        const winnerEl = document.getElementById('monthlyWinnerName');
+        const winnerSub = document.getElementById('monthlyWinnerSubtext');
+
+        if (winnerEl) {
+            if (netherTotal > poojaTotal) {
+                winnerEl.innerHTML = `👑 ผู้ผูกพันอันดับ 1: <strong>Nether 👨‍💻</strong> (${netherTotal} แต้ม)`;
+                if (winnerSub) winnerSub.innerText = 'มีความผูกพันและใส่ใจดูแลเจ้านายอย่างสม่ำเสมอตลอดเดือนนี้!';
+            } else if (poojaTotal > netherTotal) {
+                winnerEl.innerHTML = `👑 ผู้ผูกพันอันดับ 1: <strong>Pooja 🌸</strong> (${poojaTotal} แต้ม)`;
+                if (winnerSub) winnerSub.innerText = 'มีความผูกพันและใส่ใจดูแลเจ้านายอย่างสม่ำเสมอตลอดเดือนนี้!';
+            } else {
+                winnerEl.innerHTML = `👑 <strong>เสมอกันทั้งสองคน!</strong> (${netherTotal} แต้ม)`;
+                if (winnerSub) winnerSub.innerText = 'ทั้ง Nether และ Pooja มอบความรักให้น้องแมวเท่ากันอย่างอบอุ่น!';
+            }
+        }
+
+        const tableContainer = document.getElementById('monthlyScoreBreakdownTable');
+        if (tableContainer) {
+            tableContainer.innerHTML = `
+                <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; text-align: left; background: #fff; border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm);">
+                    <thead>
+                        <tr style="background: #FFF8E1; border-bottom: 1.5px solid #FFE082;">
+                            <th style="padding: 8px 10px; font-weight: 800; color: #5D4037;">กิจกรรมการดูแล</th>
+                            <th style="padding: 8px 10px; font-weight: 800; color: #1976D2; text-align: center;">Nether 👨‍💻</th>
+                            <th style="padding: 8px 10px; font-weight: 800; color: #C2185B; text-align: center;">Pooja 🌸</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 7px 10px;">🐟 ให้อาหารหลัก (+10/มื้อ)</td>
+                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${nether.food || 0} มื้อ</td>
+                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${pooja.food || 0} มื้อ</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 7px 10px;">💖 ขนมแมวเลีย (+15/ซอง)</td>
+                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${nether.treats || 0} ซอง</td>
+                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${pooja.treats || 0} ซอง</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 7px 10px;">🧶 ของเล่นแมว (+20/ครั้ง)</td>
+                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${nether.toys || 0} ครั้ง</td>
+                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${pooja.toys || 0} ครั้ง</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 7px 10px;">💉 ฉีดวัคซีน/สุขภาพ (+25/ครั้ง)</td>
+                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${nether.health || 0} ครั้ง</td>
+                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${pooja.health || 0} ครั้ง</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 7px 10px;">⏱️ เวลาเล่นรวม (+10/นาที)</td>
+                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${Math.floor((nether.playTime || 0) / 60)} นาที</td>
+                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${Math.floor((pooja.playTime || 0) / 60)} นาที</td>
+                        </tr>
+                        <tr style="background: #FAFAFA; font-weight: 800; font-size: 12.5px;">
+                            <td style="padding: 9px 10px; color: #E65100;">⭐ คะแนนความผูกพันรวม</td>
+                            <td style="padding: 9px 10px; text-align: center; color: #1976D2;">${netherTotal} แต้ม</td>
+                            <td style="padding: 9px 10px; text-align: center; color: #C2185B;">${poojaTotal} แต้ม</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
+        this.openModal('modalMonthlyBondReport');
+    }
+
+    populateSettingsRenameInputs() {
+        const netherInput = document.getElementById('renameNetherInput');
+        const poojaInput = document.getElementById('renamePoojaInput');
+        const data = window.appStorage.getLocalData();
+        if (netherInput && data.users && data.users.nether) {
+            netherInput.value = data.users.nether.name || 'Nether';
+        }
+        if (poojaInput && data.users && data.users.Pooja) {
+            poojaInput.value = data.users.Pooja.name || 'Pooja';
+        }
+    }
+
+    saveBothUserNames() {
+        const netherInput = document.getElementById('renameNetherInput');
+        const poojaInput = document.getElementById('renamePoojaInput');
+        if (!netherInput || !poojaInput) return;
+
+        const netherName = netherInput.value.trim();
+        const poojaName = poojaInput.value.trim();
+
+        if (!netherName || !poojaName) {
+            this.showToast('โปรดระบุชื่อให้ครบทั้ง 2 ฝ่าย');
+            return;
+        }
+
+        const data = window.appStorage.getLocalData();
+        if (!data.users) data.users = {};
+        if (!data.users.nether) data.users.nether = { name: 'Nether', avatar: '👨‍💻', points: 300, streak: 1 };
+        if (!data.users.Pooja) data.users.Pooja = { name: 'Pooja', avatar: '🌸', points: 300, streak: 1 };
+
+        const oldNether = data.users.nether.name;
+        const oldPooja = data.users.Pooja.name;
+        data.users.nether.name = netherName;
+        data.users.Pooja.name = poojaName;
+
+        window.appStorage.saveLocalData(data);
+        window.appStorage.logActivity(this.currentUser, data.users[this.currentUser].name, 'เปลี่ยนชื่อคู่รัก 👥', `เปลี่ยนชื่อ Nether: "${oldNether}" ➔ "${netherName}", Pooja: "${oldPooja}" ➔ "${poojaName}"`);
+
+        this.updateHeaderUserInfo();
+        if (window.soundManager) window.soundManager.playSuccess();
+        Swal.fire({
+            title: 'อัปเดตชื่อสำเร็จ! 👥✨',
+            text: `ชื่อคู่รักอัปเดตเป็น: Nether (${netherName}) & Pooja (${poojaName}) เรียบร้อยแล้ว`,
+            icon: 'success',
+            timer: 2200,
+            showConfirmButton: false
+        });
+    }
+
+    saveUserDisplayName() {
+        this.saveBothUserNames();
+    }
+
+    openCatCollectionModal() {
+        const data = window.appStorage.getLocalData();
+        if (!data.cat) {
+            Swal.fire('ยังไม่มีน้องแมว 🐱', 'กรุณารับเลี้ยงน้องแมวก่อนเปิดคอลเล็กชันน้า', 'info');
+            return;
+        }
+
+        const catAgeDays = Math.max(1, Math.floor((Date.now() - (data.cat.adoptedAt || Date.now())) / 86400000));
+        const ageBadge = document.getElementById('currentCatAgeBadge');
+        if (ageBadge) ageBadge.innerText = `อายุ ${catAgeDays} วัน`;
+
+        const noticeEl = document.getElementById('currentCatRetireEligibilityNotice');
+        const actionBox = document.getElementById('retireCatActionBox');
+
+        if (catAgeDays < 180) {
+            if (noticeEl) {
+                noticeEl.innerHTML = `ต้องเลี้ยงให้โตเต็มวัยครบ <strong>6 เดือน (180 วัน)</strong> เพื่อปลดล็อคการเก็บเข้าคอลเล็กชันและเลี้ยงตัวใหม่ (ปัจจุบันอายุ: <strong>${catAgeDays} วัน</strong>, เหลืออีก ${180 - catAgeDays} วัน) ⏳`;
+            }
+            if (actionBox) {
+                actionBox.innerHTML = `
+                    <button class="secondary-btn" disabled style="opacity: 0.6; cursor: not-allowed; width: 100%; font-size: 11.5px;">
+                        🔒 ปลดล็อคเมื่อครบ 6 เดือน (180 วัน)
+                    </button>
+                `;
+            }
+        } else {
+            if (noticeEl) {
+                noticeEl.innerHTML = `🎉 น้องแมวโตเต็มวัยครบ 6 เดือนแล้ว! สามารถเก็บเข้าคอลเล็กชันแห่งความทรงจำและรับเลี้ยงตัวใหม่ได้ (ต้องได้รับความเห็นชอบจากทั้งสองฝ่าย)`;
+            }
+
+            const req = data.catRetireRequest;
+            if (actionBox) {
+                if (!req) {
+                    actionBox.innerHTML = `
+                        <button class="primary-btn" id="requestRetireCatBtn" style="background: #6A1B9A; width: 100%; font-size: 12px;">
+                            🐾 เสนอขอเก็บเข้าคอลเล็กชัน & เลี้ยงตัวใหม่ (รอแฟนเห็นชอบ)
+                        </button>
+                    `;
+                    const btn = document.getElementById('requestRetireCatBtn');
+                    if (btn) btn.addEventListener('click', () => this.handleRetireCatRequest());
+                } else if (req.requestedBy === this.currentUser) {
+                    actionBox.innerHTML = `
+                        <div style="background: #FFF3E0; border: 1px solid #FFE082; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 700; color: #E65100; text-align: center;">
+                            ⏳ คุณได้ส่งคำขอแล้ว! กำลังรอให้อีกฝ่ายกดยืนยันเห็นชอบ
+                        </div>
+                    `;
+                } else {
+                    actionBox.innerHTML = `
+                        <div style="background: #E8F5E9; border: 1px solid #C8E6C9; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 12px; font-weight: 700; color: #2E7D32; text-align: center;">
+                            💌 แฟนของคุณเสนอขอเก็บน้องเข้าคอลเล็กชันและรับเลี้ยงตัวใหม่!
+                        </div>
+                        <button class="primary-btn" id="approveRetireCatBtn" style="background: #2E7D32; width: 100%; font-size: 12px;">
+                            ✅ ยืนยันเห็นชอบ & เก็บเข้าคอลเล็กชันทันที ✨
+                        </button>
+                    `;
+                    const btn = document.getElementById('approveRetireCatBtn');
+                    if (btn) btn.addEventListener('click', () => this.handleRetireCatApproval());
+                }
+            }
+        }
+
+        const collection = data.catCollection || [];
+        const countBadge = document.getElementById('collectionCountBadge');
+        if (countBadge) countBadge.innerText = `${collection.length} ตัว`;
+
+        const grid = document.getElementById('retiredCatsGrid');
+        if (grid) {
+            grid.innerHTML = '';
+            if (collection.length === 0) {
+                grid.innerHTML = `<div style="grid-column: span 2; text-align: center; color: var(--text-muted); padding: 16px; font-size: 11.5px;">ยังไม่มีแมวในคอลเล็กชัน เลี้ยงให้ครบ 6 เดือนเพื่อบันทึกน้องตัวแรกเข้าสู่คลัง!</div>`;
+            } else {
+                collection.forEach(c => {
+                    const card = document.createElement('div');
+                    card.style.cssText = 'background: #fff; border: 1px solid var(--border-light); border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; font-size: 11.5px;';
+                    const icon = c.isHybrid ? '🧬' : '🐱';
+                    card.innerHTML = `
+                        <div style="font-size: 24px;">${icon}</div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 800; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${c.name}</div>
+                            <div style="font-size: 10px; color: #6A1B9A; font-weight: 700;">${c.breedName || 'แมว'}</div>
+                            <div style="font-size: 9.5px; color: var(--text-muted);">บันทึกเมื่อ: ${new Date(c.retiredAt).toLocaleDateString('th-TH')}</div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+        }
+
+        const p1Select = document.getElementById('breedParent1Select');
+        const p2Select = document.getElementById('breedParent2Select');
+        if (p1Select && p2Select) {
+            p1Select.innerHTML = '<option value="">-- เลือกพ่อพันธุ์ --</option>';
+            p2Select.innerHTML = '<option value="">-- เลือกแม่พันธุ์ --</option>';
+            collection.forEach(c => {
+                p1Select.innerHTML += `<option value="${c.id}">${c.name} (${c.breedName || 'แมว'})</option>`;
+                p2Select.innerHTML += `<option value="${c.id}">${c.name} (${c.breedName || 'แมว'})</option>`;
+            });
+        }
+
+        this.openModal('modalCatCollection');
+    }
+
+    handleRetireCatRequest() {
+        const data = window.appStorage.getLocalData();
+        data.catRetireRequest = {
+            requestedBy: this.currentUser,
+            requestedAt: Date.now()
+        };
+        window.appStorage.saveLocalData(data);
+        window.appStorage.logActivity(
+            this.currentUser,
+            data.users[this.currentUser].name,
+            'เสนอขอเก็บแมวเข้าคอลเล็กชัน 🏛️',
+            'รอการยืนยันเห็นชอบจากอีกฝ่าย'
+        );
+
+        window.soundManager.playSuccess();
+        Swal.fire({
+            title: 'ส่งคำขอแล้ว! 🐾⏳',
+            text: 'ส่งคำขอเก็บน้องแมวเข้าคอลเล็กชันและรับเลี้ยงตัวใหม่ไปยังแฟนแล้ว เมื่อแฟนกดยืนยันเห็นชอบ ระบบจะย้ายน้องเข้าคอลเล็กชันทันที',
+            icon: 'info'
+        });
+
+        this.openCatCollectionModal();
+    }
+
+    handleRetireCatApproval() {
+        const res = window.appStorage.retireCatToCollection(this.currentUser);
+        if (res.success) {
+            window.soundManager.playReward();
+            if (typeof confetti === 'function') confetti({ particleCount: 80, spread: 60 });
+
+            Swal.fire({
+                title: 'สำเร็จแล้ว! 🐾🎉',
+                html: `เก็บเจ้านายตัวเดิมเข้าสู่ <strong>คอลเล็กชันแมวแห่งความทรงจำ</strong> เรียบร้อยแล้ว<br><br>🎁 และได้เปิดกล่องรับเลี้ยง <strong>ลูกแมวปริศนาตัวใหม่</strong> เรียบร้อยแล้ว! มารอลุ้นสายพันธุ์กันนะค้าบ`,
+                icon: 'success'
+            });
+
+            this.closeModal('modalCatCollection');
+            this.syncGardenState();
+            if (this.garden3D && typeof this.garden3D.loadCatModel === 'function') {
+                const refreshedData = window.appStorage.getLocalData();
+                this.garden3D.loadCatModel(refreshedData.cat.breed || 'mystery_kitten');
+            }
+        } else {
+            Swal.fire('ข้อผิดพลาด', res.message, 'error');
+        }
+    }
+
+    startCrossBreeding() {
+        const p1 = document.getElementById('breedParent1Select').value;
+        const p2 = document.getElementById('breedParent2Select').value;
+
+        if (!p1 || !p2) {
+            Swal.fire('ข้อมูลไม่ครบถ้วน', 'กรุณาเลือกทั้งพ่อพันธุ์และแม่พันธุ์จากคอลเล็กชัน', 'warning');
+            return;
+        }
+
+        if (p1 === p2) {
+            Swal.fire('เลือกซ้ำกันไม่ได้', 'กรุณาเลือกแมวคนละตัวเพื่อผสมพันธุ์ข้ามสายพันธุ์', 'warning');
+            return;
+        }
+
+        const res = window.appStorage.breedCats(p1, p2, this.currentUser);
+        if (res.success) {
+            window.soundManager.playReward();
+            if (typeof confetti === 'function') confetti({ particleCount: 70, spread: 55 });
+
+            Swal.fire({
+                title: 'กำเนิดลูกแมวไฮบริดสายพันธุ์ใหม่! 🧬🐾',
+                html: `ยินดีด้วย! ได้รับลูกแมวไฮบริด <strong>${res.newCat.name}</strong><br>สายพันธุ์ผสม: <strong style="color: #C2185B;">${res.newCat.breedName}</strong><br>บันทึกเข้าสู่คลังคอลเล็กชันเรียบร้อยแล้ว (+100 แต้ม)`,
+                icon: 'success'
+            });
+
+            this.openCatCollectionModal();
+        } else {
+            Swal.fire('ข้อผิดพลาด', res.message, 'error');
+        }
+    }
+
+    openMealHistoryModal() {
+        const data = window.appStorage.getLocalData();
+        const recordsMap = new Map();
+
+        // 1. Automatically aggregate from data.meals (stores every meal and snack for all dates & partners)
+        if (data.meals) {
+            Object.keys(data.meals).forEach(dateStr => {
+                const dayObj = data.meals[dateStr];
+                if (!dayObj) return;
+                ['nether', 'Pooja'].forEach(uId => {
+                    const uData = dayObj[uId];
+                    if (!uData) return;
+                    const key = `${dateStr}_${uId}`;
+                    const breakfast = uData.breakfast || { eaten: false, time: '', name: '' };
+                    const lunch = uData.lunch || { eaten: false, time: '', name: '' };
+                    const dinner = uData.dinner || { eaten: false, time: '', name: '' };
+                    const snacks = uData.snacks || [];
+                    const hasActivity = breakfast.eaten || lunch.eaten || dinner.eaten || snacks.length > 0;
+
+                    recordsMap.set(key, {
+                        id: 'meal_' + key,
+                        userId: uId,
+                        userName: data.users?.[uId]?.name || (uId === 'nether' ? 'Nether' : 'Pooja'),
+                        date: dateStr,
+                        archivedAt: dateStr,
+                        meals: [
+                            { id: 'breakfast', label: 'มื้อเช้า', eaten: !!breakfast.eaten, time: breakfast.time || '', name: breakfast.name || '' },
+                            { id: 'lunch', label: 'มื้อเที่ยง', eaten: !!lunch.eaten, time: lunch.time || '', name: lunch.name || '' },
+                            { id: 'dinner', label: 'มื้อเย็น', eaten: !!dinner.eaten, time: dinner.time || '', name: dinner.name || '' }
+                        ],
+                        snacks: snacks,
+                        hasActivity: hasActivity
+                    });
+                });
+            });
+        }
+
+        // 2. Also incorporate any pre-existing records in data.mealHistory
+        if (data.mealHistory && Array.isArray(data.mealHistory)) {
+            data.mealHistory.forEach(item => {
+                const key = `${item.date}_${item.userId}`;
+                if (!recordsMap.has(key)) {
+                    recordsMap.set(key, {
+                        ...item,
+                        hasActivity: true
+                    });
+                }
+            });
+        }
+
+        let list = Array.from(recordsMap.values());
+        // Sort descending by date
+        list.sort((a, b) => b.date.localeCompare(a.date));
+
+        // Filter by partner
+        if (this.currentMealHistoryPartner !== 'all') {
+            list = list.filter(m => m.userId === this.currentMealHistoryPartner);
+        }
+
+        const container = document.getElementById('mealHistoryContainerList');
+        if (container) {
+            container.innerHTML = '';
+            if (list.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 24px; font-size: 12px;">ยังไม่มีประวัติมื้ออาหารที่บันทึกไว้ในคลัง</div>`;
+            } else {
+                list.forEach(item => {
+                    const card = document.createElement('div');
+                    card.style.cssText = 'background: #fff; border: 1.5px solid var(--border-light); border-radius: var(--radius-md); padding: 12px; box-shadow: var(--shadow-sm); margin-bottom: 2px;';
+                    const userBadge = item.userId === 'nether' 
+                        ? '<span style="background: #E3F2FD; color: #1976D2; padding: 2px 8px; border-radius: 8px; font-size: 10.5px; font-weight: 700;">Nether 👨‍💻</span>'
+                        : '<span style="background: #FCE4EC; color: #C2185B; padding: 2px 8px; border-radius: 8px; font-size: 10.5px; font-weight: 700;">Pooja 🌸</span>';
+
+                    let mealsHtml = '';
+                    (item.meals || []).forEach(m => {
+                        const icon = m.id === 'breakfast' ? '🍳' : m.id === 'lunch' ? '🍱' : '🍲';
+                        const status = m.eaten 
+                            ? `<span style="color: #2E7D32; font-weight: 700;">ทานแล้ว (${m.name || 'อิ่มอร่อย'})${m.time ? ' • ' + m.time : ''}</span>` 
+                            : `<span style="color: var(--text-muted); font-size: 11px;">ยังไม่ได้ทาน</span>`;
+                        mealsHtml += `
+                            <div style="display: flex; justify-content: space-between; font-size: 11.5px; padding: 4px 0; border-bottom: 1px dashed #f0f0f0;">
+                                <span>${icon} ${m.label}:</span>
+                                <span>${status}</span>
+                            </div>
+                        `;
+                    });
+
+                    let snacksHtml = '';
+                    if (item.snacks && item.snacks.length > 0) {
+                        snacksHtml = `
+                            <div style="margin-top: 6px; padding-top: 5px; border-top: 1px solid #f5f5f5;">
+                                <div style="font-size: 11px; font-weight: 700; color: #E65100; margin-bottom: 3px;">🧋 ของว่าง / มื้อย่อย (${item.snacks.length} รายการ):</div>
+                                ${item.snacks.map(s => `
+                                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); padding: 2px 0;">
+                                        <span>• ${s.name || 'ของว่าง'}</span>
+                                        <span>${s.time || ''} (+${s.pts || 10} แต้ม)</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+
+                    card.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-weight: 800; font-size: 12.5px; color: var(--text-primary);">📅 ${item.date}</span>
+                            ${userBadge}
+                        </div>
+                        <div style="margin-bottom: 4px;">${mealsHtml}</div>
+                        ${snacksHtml}
+                    `;
+                    container.appendChild(card);
+                });
+            }
+        }
+
+        this.openModal('modalMealHistory');
+    }
+
+    handleClearChatAndCareHistory() {
+        const data = window.appStorage.getLocalData();
+        const userName = data.users[this.currentUser].name;
+
+        Swal.fire({
+            title: 'ยืนยันล้างประวัติแชท & ประวัติดูแลแมว 🗑️',
+            text: 'ข้อความแชททั้งหมดและบันทึกประวัติการดูแลความผูกพันของน้องแมวจะถูกลบออกพร้อมกันอย่างถาวร ยืนยันหรือไม่?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#D32F2F',
+            cancelButtonColor: '#78909C',
+            confirmButtonText: 'ใช่ ลบทั้งหมดทันที',
+            cancelButtonText: 'ยกเลิก'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.appStorage.clearChatAndCareHistory(this.currentUser, userName);
+                window.soundManager.playDelete();
+                this.renderChatView();
+                this.renderAuditLogs();
+                this.showToast('ล้างประวัติแชทและประวัติดูแลน้องแมวเรียบร้อยแล้ว');
+            }
+        });
+    }
+
+    // -------------------------------------------------------------------------
     // Event Bindings
     // -------------------------------------------------------------------------
     bindEvents() {
+        // ---------------------------------------------------------------------
+        // Universal Delegated Modal Close & Backdrop Click Handler (Registered first)
+        // ---------------------------------------------------------------------
+        document.addEventListener('click', (e) => {
+            // 1. If clicked a close button or element inside a close button
+            const closeTarget = e.target.closest('[data-close], .modal-close-btn');
+            if (closeTarget) {
+                const targetModalId = closeTarget.getAttribute('data-close');
+                if (targetModalId) {
+                    this.closeModal(targetModalId);
+                } else {
+                    const parentModal = closeTarget.closest('.custom-modal-backdrop');
+                    if (parentModal) this.closeModal(parentModal.id);
+                }
+                return;
+            }
+
+            // 2. If clicked directly on the modal backdrop outside the dialog box
+            if (e.target.classList.contains('custom-modal-backdrop')) {
+                this.closeModal(e.target.id);
+            }
+        });
+
+        // Close on Escape key press
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const openModals = document.querySelectorAll('.custom-modal-backdrop.open');
+                openModals.forEach(modal => this.closeModal(modal.id));
+            }
+        });
+
+        // Safe helper to attach event listeners without throwing if element is missing
+        const safeOn = (id, event, callback) => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener(event, callback);
+            return el;
+        };
+
         // Login Form (Case-insensitive user ID check & password validation)
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
+        safeOn('loginForm', 'submit', (e) => {
             e.preventDefault();
-            const id = document.getElementById('loginId').value.trim();
-            const pass = document.getElementById('loginPass').value.trim();
+            const id = document.getElementById('loginId')?.value?.trim() || '';
+            const pass = document.getElementById('loginPass')?.value?.trim() || '';
 
             const passErr = document.getElementById('passErrorMsg');
-            passErr.classList.remove('show');
+            if (passErr) passErr.classList.remove('show');
 
             const idLower = id.toLowerCase();
             if (idLower === 'nether' && pass === 'nether28') {
@@ -1994,58 +3390,48 @@ class AppController {
                 this.setLoggedInUser('Pooja');
             } else {
                 if (window.soundManager) window.soundManager.playError();
-                passErr.innerText = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง โปรดตรวจสอบอีกครั้ง';
-                passErr.classList.add('show');
+                if (passErr) {
+                    passErr.innerText = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง โปรดตรวจสอบอีกครั้ง';
+                    passErr.classList.add('show');
+                }
             }
         });
 
         // Welcome Manual / Help Button
-        const manualBtn = document.getElementById('openWelcomeManualBtn');
-        if (manualBtn) {
-            manualBtn.addEventListener('click', () => {
-                this.openWelcomeManual(0);
-            });
-        }
+        safeOn('openWelcomeManualBtn', 'click', () => {
+            this.openWelcomeManual(0);
+        });
 
         // Welcome Manual Navigation Handlers
-        const manualPrevBtn = document.getElementById('manualPrevBtn');
-        if (manualPrevBtn) {
-            manualPrevBtn.addEventListener('click', () => {
-                if (this.currentManualStep > 0) {
-                    this.currentManualStep--;
-                    this.updateManualSlide();
-                    window.soundManager.playClick();
-                }
-            });
-        }
+        safeOn('manualPrevBtn', 'click', () => {
+            if (this.currentManualStep > 0) {
+                this.currentManualStep--;
+                this.updateManualSlide();
+                window.soundManager.playClick();
+            }
+        });
 
-        const manualNextBtn = document.getElementById('manualNextBtn');
-        if (manualNextBtn) {
-            manualNextBtn.addEventListener('click', () => {
-                const slides = document.querySelectorAll('.manual-slide-card');
-                if (this.currentManualStep < slides.length - 1) {
-                    this.currentManualStep++;
-                    this.updateManualSlide();
-                    window.soundManager.playClick();
-                }
-            });
-        }
+        safeOn('manualNextBtn', 'click', () => {
+            const slides = document.querySelectorAll('.manual-slide-card');
+            if (this.currentManualStep < slides.length - 1) {
+                this.currentManualStep++;
+                this.updateManualSlide();
+                window.soundManager.playClick();
+            }
+        });
 
-        const manualFinishBtn = document.getElementById('manualFinishBtn');
-        if (manualFinishBtn) {
-            manualFinishBtn.addEventListener('click', () => {
-                this.closeModal('modalWelcomeManual');
-                window.soundManager.playReward();
-                const data = window.appStorage.getLocalData();
-                if (data.users && data.users[this.currentUser]) {
-                    data.users[this.currentUser].hasSeenWelcomeManual = true;
-                    window.appStorage.saveLocalData(data);
-                }
-                if (!data.cat) {
-                    this.openCatAdoptionModal();
-                }
-            });
-        }
+        safeOn('manualFinishBtn', 'click', () => {
+            this.closeModal('modalWelcomeManual');
+            window.soundManager.playReward();
+            const data = window.appStorage.getLocalData();
+            if (data.users && data.users[this.currentUser]) {
+                data.users[this.currentUser].hasSeenWelcomeManual = true;
+                window.appStorage.saveLocalData(data);
+            }
+            if (!data.cat) {
+                this.openCatAdoptionModal();
+            }
+        });
 
         const dots = document.querySelectorAll('.manual-dot');
         dots.forEach((d, idx) => {
@@ -2067,91 +3453,90 @@ class AppController {
         });
 
         // Header Actions
-        document.getElementById('headerPointsBtn').addEventListener('click', () => {
+        safeOn('headerPointsBtn', 'click', () => {
             this.navigateTo('view-quests');
         });
 
-        document.getElementById('sendNudgeBtn').addEventListener('click', () => {
+        safeOn('sendNudgeBtn', 'click', () => {
             this.sendMissYouNudge();
         });
 
-        document.getElementById('openActivityLogBtn').addEventListener('click', () => {
+        safeOn('openActivityLogBtn', 'click', () => {
             this.renderActivityLogs();
             this.openModal('modalActivityHistory');
         });
 
-        document.getElementById('soundToggleBtn').addEventListener('click', () => {
+        safeOn('soundToggleBtn', 'click', () => {
             const isEnabled = window.soundManager.toggle();
             const icon = document.getElementById('soundIcon');
-            icon.setAttribute('data-lucide', isEnabled ? 'volume-2' : 'volume-x');
-            if (window.lucide) window.lucide.createIcons();
+            if (icon) {
+                icon.setAttribute('data-lucide', isEnabled ? 'volume-2' : 'volume-x');
+                if (window.lucide) window.lucide.createIcons();
+            }
             this.showToast(isEnabled ? 'เปิดเสียงเอฟเฟกต์แล้ว' : 'ปิดเสียงแล้ว');
         });
 
-        document.getElementById('appSettingsBtn').addEventListener('click', () => {
+        safeOn('appSettingsBtn', 'click', () => {
+            if (this.currentUser !== 'nether') return;
             this.renderResetSection();
             this.updateFirebaseSettingsUI();
+            this.populateSettingsRenameInputs();
             this.openModal('modalSettings');
         });
 
-        document.getElementById('morningReportBtn').addEventListener('click', () => {
+        safeOn('morningReportBtn', 'click', () => {
             this.openMorningReportModal();
         });
 
         // Cat Care Actions (Real-time inventory deduction & animation)
-        document.getElementById('actWaterBtn').addEventListener('click', () => this.feedCatMainMeal());
-        document.getElementById('actFertBtn').addEventListener('click', () => this.giveCatTreat());
-        document.getElementById('actPestBtn').addEventListener('click', () => this.cureObstacles(true));
-        document.getElementById('actWeedBtn').addEventListener('click', () => this.cureObstacles(false));
+        safeOn('actWaterBtn', 'click', () => this.feedCatMainMeal());
+        safeOn('actFertBtn', 'click', () => this.giveCatTreat());
+        safeOn('actPestBtn', 'click', () => this.cureObstacles(true));
+        safeOn('actWeedBtn', 'click', () => this.cureObstacles(false));
 
-        document.getElementById('cureObstacleBtn').addEventListener('click', () => {
+        safeOn('cureObstacleBtn', 'click', () => {
             const data = window.appStorage.getLocalData();
-            if (data.cat.hasFever) this.cureObstacles(true);
-            else if (data.cat.hasLongNails) this.cureObstacles(false);
+            if (data.cat && data.cat.hasFever) this.cureObstacles(true);
+            else if (data.cat && data.cat.hasLongNails) this.cureObstacles(false);
         });
 
         // Sub Actions
-        const openAdoptBtn = document.getElementById('openAdoptionModalBtn');
-        if (openAdoptBtn) {
-            openAdoptBtn.addEventListener('click', () => {
-                this.openCatAdoptionModal();
-            });
-        }
+        safeOn('openAdoptionModalBtn', 'click', () => {
+            this.openCatAdoptionModal();
+        });
 
-        const confirmAdoptBtn = document.getElementById('confirmAdoptCatBtn');
-        if (confirmAdoptBtn) {
-            confirmAdoptBtn.addEventListener('click', () => {
-                this.confirmCatAdoption();
-            });
-        }
+        safeOn('confirmAdoptCatBtn', 'click', () => {
+            this.confirmCatAdoption();
+        });
 
-        document.getElementById('openTreeCatalogBtn').addEventListener('click', () => {
+        safeOn('openTreeCatalogBtn', 'click', () => {
             this.renderCatCatalog();
             this.openModal('modalTreeCatalog');
         });
 
-        document.getElementById('openHarvestBtn').addEventListener('click', () => {
+        safeOn('openHarvestBtn', 'click', () => {
             this.checkAndOpenHarvestModal();
         });
 
-        document.getElementById('openYearArchiveBtn').addEventListener('click', () => {
+        safeOn('openYearArchiveBtn', 'click', () => {
+            this.renderYearCollection();
             this.openModal('modalYearArchive');
         });
 
         // Daily Checkin
-        document.getElementById('dailyCheckinBtn').addEventListener('click', () => {
+        safeOn('dailyCheckinBtn', 'click', () => {
             this.performDailyCheckin();
         });
 
         // Meals Toggle
-        document.getElementById('mealTabNether').addEventListener('click', () => {
+        safeOn('mealTabNether', 'click', () => {
             this.currentMealPartner = 'nether';
             this.updateMealPartnerTabs();
             this.renderMealsView();
             window.soundManager.playClick();
         });
 
-        document.getElementById('mealTabPooja').addEventListener('click', () => {
+        safeOn('mealTabPooja', 'click', () => {
             this.currentMealPartner = 'Pooja';
             this.updateMealPartnerTabs();
             this.renderMealsView();
@@ -2159,16 +3544,16 @@ class AppController {
         });
 
         // Meal Edit Form
-        document.getElementById('mealEditForm').addEventListener('submit', (e) => {
+        safeOn('mealEditForm', 'submit', (e) => {
             e.preventDefault();
-            const mealKey = document.getElementById('mealEditType').value;
-            const foodName = document.getElementById('mealInputName').value.trim();
-            const mealTime = document.getElementById('mealInputTime').value;
+            const mealKey = document.getElementById('mealEditType')?.value;
+            const foodName = document.getElementById('mealInputName')?.value?.trim() || '';
+            const mealTime = document.getElementById('mealInputTime')?.value || '';
             this.saveMealData(mealKey, foodName, mealTime);
         });
 
         // Add Snack
-        document.getElementById('openAddSnackBtn').addEventListener('click', () => {
+        safeOn('openAddSnackBtn', 'click', () => {
             Swal.fire({
                 title: 'เพิ่มมื้อย่อย / ของว่าง 🧋',
                 input: 'text',
@@ -2193,33 +3578,53 @@ class AppController {
                     window.appStorage.saveLocalData(data);
                     window.soundManager.playSuccess();
                     this.showToast('เพิ่มรายการของว่างแล้ว (+10 แต้ม)');
+                    this.renderMealsView();
+                    this.updateHeaderPoints();
                 }
             });
         });
 
         // Notes Form
-        document.getElementById('openNewNoteBtn').addEventListener('click', () => {
+        safeOn('openNewNoteBtn', 'click', () => {
             this.openEditNoteModal(null);
         });
 
-        document.getElementById('newNoteForm').addEventListener('submit', (e) => {
+        safeOn('saveNoteBtn', 'click', (e) => {
             e.preventDefault();
-            const noteId = document.getElementById('editNoteId').value;
-            const title = document.getElementById('noteTitleInput').value.trim();
-            const content = document.getElementById('noteContentInput').value.trim();
-            const cat = document.getElementById('noteCategorySelect').value;
-            const remind = document.getElementById('noteRemindTime').value;
+            const noteId = document.getElementById('editNoteId')?.value;
+            const title = document.getElementById('noteTitleInput')?.value?.trim() || '';
+            const content = document.getElementById('noteContentInput')?.value?.trim() || '';
+            const cat = document.getElementById('noteCategorySelect')?.value;
+            const remind = document.getElementById('noteRemindTime')?.value;
+            if (!title) {
+                this.showToast('โปรดระบุหัวข้อบันทึก');
+                return;
+            }
+            this.saveNote(noteId, title, content, cat, remind);
+        });
+
+        safeOn('newNoteForm', 'submit', (e) => {
+            e.preventDefault();
+            const noteId = document.getElementById('editNoteId')?.value;
+            const title = document.getElementById('noteTitleInput')?.value?.trim() || '';
+            const content = document.getElementById('noteContentInput')?.value?.trim() || '';
+            const cat = document.getElementById('noteCategorySelect')?.value;
+            const remind = document.getElementById('noteRemindTime')?.value;
+            if (!title) {
+                this.showToast('โปรดระบุหัวข้อบันทึก');
+                return;
+            }
             this.saveNote(noteId, title, content, cat, remind);
         });
 
         // Calendar Month Nav
-        document.getElementById('calPrevMonthBtn').addEventListener('click', () => {
+        safeOn('calPrevMonthBtn', 'click', () => {
             this.calendarDate.setMonth(this.calendarDate.getMonth() - 1);
             this.renderCalendarView();
             window.soundManager.playClick();
         });
 
-        document.getElementById('calNextMonthBtn').addEventListener('click', () => {
+        safeOn('calNextMonthBtn', 'click', () => {
             this.calendarDate.setMonth(this.calendarDate.getMonth() + 1);
             this.renderCalendarView();
             window.soundManager.playClick();
@@ -2236,16 +3641,16 @@ class AppController {
             });
         });
 
-        document.getElementById('submitBedtimeMoodBtn').addEventListener('click', () => {
-            const note = document.getElementById('bedtimeNoteInput').value;
+        safeOn('submitBedtimeMoodBtn', 'click', () => {
+            const note = document.getElementById('bedtimeNoteInput')?.value || '';
             this.submitBedtimeMood(note);
         });
 
         // Chat
-        document.getElementById('chatSendForm').addEventListener('submit', (e) => {
+        safeOn('chatSendForm', 'submit', (e) => {
             e.preventDefault();
             const msgInput = document.getElementById('chatMessageInput');
-            this.sendChatMessage(msgInput.value);
+            if (msgInput) this.sendChatMessage(msgInput.value);
         });
 
         const stickers = document.querySelectorAll('.quick-sticker');
@@ -2256,30 +3661,40 @@ class AppController {
         });
 
         // Quiz
-        document.getElementById('openNewQuizBtn').addEventListener('click', () => {
+        safeOn('openNewQuizBtn', 'click', () => {
             this.openModal('modalNewQuiz');
         });
 
-        document.getElementById('openQuizHistoryBtn').addEventListener('click', () => {
+        safeOn('openQuizHistoryBtn', 'click', () => {
+            this.renderPastQuizHistory('all');
             this.openModal('modalQuizHistory');
         });
 
-        document.getElementById('newQuizForm').addEventListener('submit', (e) => {
+        const quizFilterBtns = document.querySelectorAll('.quiz-filter-btn');
+        quizFilterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                quizFilterBtns.forEach(b => b.classList.remove('active-tab'));
+                btn.classList.add('active-tab');
+                this.renderPastQuizHistory(btn.getAttribute('data-filter') || 'all');
+            });
+        });
+
+        safeOn('newQuizForm', 'submit', (e) => {
             e.preventDefault();
-            const q = document.getElementById('quizQuestionInput').value.trim();
-            const o1 = document.getElementById('quizOpt1').value.trim();
-            const o2 = document.getElementById('quizOpt2').value.trim();
-            const o3 = document.getElementById('quizOpt3').value.trim();
-            const o4 = document.getElementById('quizOpt4').value.trim();
-            const correctIdx = parseInt(document.getElementById('quizCorrectSelect').value, 10);
+            const q = document.getElementById('quizQuestionInput')?.value?.trim() || '';
+            const o1 = document.getElementById('quizOpt1')?.value?.trim() || '';
+            const o2 = document.getElementById('quizOpt2')?.value?.trim() || '';
+            const o3 = document.getElementById('quizOpt3')?.value?.trim() || '';
+            const o4 = document.getElementById('quizOpt4')?.value?.trim() || '';
+            const correctIdx = parseInt(document.getElementById('quizCorrectSelect')?.value || '0', 10);
             this.saveNewQuiz(q, [o1, o2, o3, o4], correctIdx);
         });
 
         // Harvest Form (Lucky Bell)
-        document.getElementById('harvestForm').addEventListener('submit', (e) => {
+        safeOn('harvestForm', 'submit', (e) => {
             e.preventDefault();
-            const title = document.getElementById('harvestTitleInput').value.trim();
-            const content = document.getElementById('harvestMsgInput').value.trim();
+            const title = document.getElementById('harvestTitleInput')?.value?.trim() || '';
+            const content = document.getElementById('harvestMsgInput')?.value?.trim() || '';
             this.submitHarvestPostit(title, content);
         });
 
@@ -2294,14 +3709,14 @@ class AppController {
         });
 
         // Logout Button
-        document.getElementById('logoutBtn').addEventListener('click', () => {
+        safeOn('logoutBtn', 'click', () => {
             this.closeModal('modalSettings');
             this.logout();
         });
 
         // Save Firebase Config
-        document.getElementById('saveFirebaseConfigBtn').addEventListener('click', () => {
-            const raw = document.getElementById('firebaseConfigInput').value.trim();
+        safeOn('saveFirebaseConfigBtn', 'click', () => {
+            const raw = document.getElementById('firebaseConfigInput')?.value?.trim() || '';
             if (!raw) {
                 this.showToast('โปรดวาง Firebase Config JSON');
                 return;
@@ -2310,8 +3725,11 @@ class AppController {
                 const parsed = JSON.parse(raw);
                 const res = window.appStorage.saveFirebaseConfig(parsed);
                 if (res.success) {
-                    document.getElementById('firebaseStatusBadge').innerText = '🟢 Cloud Firestore Connected';
-                    document.getElementById('firebaseStatusBadge').style.color = 'var(--accent-mint)';
+                    const statusBadge = document.getElementById('firebaseStatusBadge');
+                    if (statusBadge) {
+                        statusBadge.innerText = '🟢 Cloud Firestore Connected';
+                        statusBadge.style.color = 'var(--accent-mint)';
+                    }
                     this.showToast('เชื่อมต่อ Cloud Firestore สำเร็จ!');
                 }
             } catch (err) {
@@ -2320,13 +3738,40 @@ class AppController {
             }
         });
 
-        // Close Modals
-        const closeBtns = document.querySelectorAll('[data-close]');
-        closeBtns.forEach(btn => {
+        // ---------------------------------------------------------------------
+        // New Features Event Bindings
+        // ---------------------------------------------------------------------
+        // 1. Play with Cat
+        safeOn('openCatPlayBtn', 'click', () => this.openCatPlayModal());
+        safeOn('startPlaySessionBtn', 'click', () => this.startPlaySession());
+        safeOn('stopPlaySessionBtn', 'click', () => this.stopPlaySession());
+
+        // 2. Monthly Bond Report
+        safeOn('openMonthlyBondReportBtn', 'click', () => this.openMonthlyBondReportModal());
+
+        // 3. Cat Collection & Breeding (Age Debug button deleted)
+        safeOn('openCatCollectionBtn', 'click', () => this.openCatCollectionModal());
+        safeOn('startCrossBreedBtn', 'click', () => this.startCrossBreeding());
+
+        // 4. Player Rename (Dual-Partner Renaming)
+        safeOn('saveUserNameBtn', 'click', () => this.saveBothUserNames());
+        safeOn('saveBothUserNamesBtn', 'click', () => this.saveBothUserNames());
+
+        // 5. Meal History (Automatic all-days archive)
+        safeOn('viewMealHistoryBtn', 'click', () => this.openMealHistoryModal());
+
+        const mealHistFilters = document.querySelectorAll('.meal-history-filter-btn');
+        mealHistFilters.forEach(btn => {
             btn.addEventListener('click', () => {
-                this.closeModal(btn.getAttribute('data-close'));
+                mealHistFilters.forEach(b => b.classList.remove('active-tab'));
+                btn.classList.add('active-tab');
+                this.currentMealHistoryPartner = btn.getAttribute('data-partner');
+                this.openMealHistoryModal();
             });
         });
+
+        // 6. Clear Chat & Care History
+        safeOn('clearChatAndCareBtn', 'click', () => this.handleClearChatAndCareHistory());
     }
 }
 

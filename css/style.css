@@ -279,15 +279,21 @@ body {
     flex: 1;
     padding: 16px;
     padding-bottom: 96px;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 .view-section {
     display: none;
     animation: fadeInView 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow-x: hidden;
+    width: 100%;
 }
 
 .view-section.active-view {
     display: block;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 @keyframes fadeInView {
@@ -705,16 +711,19 @@ body {
     color: var(--text-muted);
 }
 
-/* Sub-Actions Bar */
+/* Sub-Actions Bar (Responsive 2-column Grid, Vertical Scroll Only) */
 .garden-sub-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
     margin-bottom: 20px;
+    width: 100%;
 }
 
 .pill-action-btn {
-    flex: 1;
-    padding: 10px 10px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 8px;
     background: var(--bg-surface);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-full);
@@ -728,12 +737,32 @@ body {
     gap: 5px;
     transition: all var(--transition-fast);
     box-shadow: var(--shadow-sm);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .pill-action-btn:hover {
     border-color: var(--accent-coral);
     background: var(--accent-coral-light);
     color: var(--accent-coral);
+}
+
+.pill-action-btn.play-cat-highlight {
+    grid-column: span 2;
+    background: linear-gradient(135deg, #FFF3E0, #FFE0B2);
+    border: 1.5px solid #FFB74D;
+    color: #E65100;
+    font-weight: 800;
+    font-size: 13px;
+    padding: 12px 14px;
+}
+
+.pill-action-btn.play-cat-highlight:hover {
+    background: #FFE082;
+    border-color: #FFA726;
+    color: #BF360C;
 }
 
 /* Quests View */
@@ -1048,6 +1077,75 @@ body {
 .edit-meal-btn:hover {
     border-color: var(--accent-coral);
     color: var(--accent-coral);
+}
+
+/* Responsive Meal Action Controls */
+.meals-action-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.meal-action-primary-btn {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 16px;
+    background: linear-gradient(135deg, #FFF3EB, #FFE6D9);
+    border: 1.5px dashed var(--accent-coral);
+    border-radius: var(--radius-md);
+    color: var(--accent-coral);
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.meal-action-primary-btn:hover {
+    background: var(--accent-coral-light);
+    transform: translateY(-1px);
+}
+
+.meal-action-secondary-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    box-sizing: border-box;
+    text-align: center;
+}
+
+.meal-action-secondary-btn.btn-view-meal-history {
+    background: #FFFFFF;
+    border: 1.5px solid var(--border-medium);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.meal-action-secondary-btn.btn-view-meal-history:hover {
+    background: var(--bg-surface);
+    border-color: var(--accent-coral);
+    color: var(--accent-coral);
+    transform: translateY(-1px);
+}
+
+@media (max-width: 360px) {
+    .meals-history-action-row {
+        grid-template-columns: 1fr;
+    }
 }
 
 .add-snack-btn {
@@ -1617,6 +1715,41 @@ body {
 .nav-item-btn.active-nav { color: var(--accent-coral); font-weight: 800; }
 .nav-item-btn.active-nav svg { transform: scale(1.12); }
 
+.nav-badge-count {
+    position: absolute;
+    top: 2px;
+    right: 5px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #FF5252, #FF1744);
+    color: #FFFFFF;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 17px;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(255, 23, 68, 0.45);
+    border: 1.5px solid #FFFFFF;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 10;
+    box-sizing: border-box;
+    animation: badgePop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.nav-badge-count.hidden {
+    display: none !important;
+}
+
+@keyframes badgePop {
+    0% { transform: scale(0); opacity: 0; }
+    80% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
 .nav-badge-dot {
     position: absolute;
     top: 4px;
@@ -1651,9 +1784,10 @@ body {
     background: var(--bg-surface);
     border-radius: var(--radius-xl);
     width: 100%;
-    max-width: 400px;
+    max-width: 440px;
     max-height: 85vh;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 24px 20px;
     box-shadow: var(--shadow-lg);
     border: 1px solid var(--border-light);
@@ -1677,11 +1811,24 @@ body {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    cursor: pointer;
+    cursor: pointer !important;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
+    position: relative;
+    z-index: 10;
+    pointer-events: auto !important;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.modal-close-btn:hover {
+    background: rgba(0, 0, 0, 0.08);
+    transform: scale(1.05);
+}
+
+.modal-close-btn * {
+    pointer-events: none !important;
 }
 
 .toast-notice {
@@ -2253,6 +2400,71 @@ body {
 
 #appViewport.is-logged-out #view-login {
     display: block !important;
+}
+
+/* Chat Read Receipts */
+.chat-time-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.chat-bubble.sent .chat-time-row {
+    justify-content: flex-end;
+}
+
+.chat-bubble.received .chat-time-row {
+    justify-content: flex-start;
+}
+
+.read-receipt-badge {
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.read-receipt-badge.is-read {
+    color: #00897B;
+}
+
+.read-receipt-badge.is-sent {
+    color: #9E9E9E;
+}
+
+/* Toy Select Cards in Play Modal */
+.toy-select-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.toy-select-card.selected-toy {
+    border-color: #FF6B4A !important;
+    background: #FFF3E0 !important;
+}
+
+/* Interactive Play Stage Pulse */
+.play-session-stage {
+    position: relative;
+    overflow: hidden;
+}
+
+.play-session-stage::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 183, 77, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+    animation: playStagePulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes playStagePulse {
+    0% { transform: scale(0.9); opacity: 0.5; }
+    100% { transform: scale(1.1); opacity: 0.9; }
 }
 
 

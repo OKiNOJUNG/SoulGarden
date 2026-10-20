@@ -16,6 +16,12 @@ const CAT_BREEDS = [
         growthSpeed: 'เร็ว (+3% ต่อวัน ⚡)',
         earType: 'standard',
         patternType: 'tabby_striped',
+        sleepSchedule: {
+            sleepHours: [13, 14, 15, 16, 0, 1, 2, 3, 4, 5],
+            timeRange: '13:00 - 17:00 & 00:00 - 06:00 น.',
+            totalHours: '10 ชม./วัน',
+            habit: 'นอนกลางวันผึ่งพุงรับแดดอุ่น นอนกรนเบาๆ หลับปุ๋ยขี้เซา'
+        },
         description: 'เจ้าส้มซ่าตัวกลม ขนสีทรายอมส้มพร้อมลายแถบคาดหลัง ตากลมโตสีอำพันประกายสดใส นิสัยขี้อ้อน ช่างประจบ และรักการกินเป็นชีวิตจิตใจ',
         specialBonus: 'มีโอกาส 30% ได้รับอาหารหลักหรือขนมแมวเลียฟรีเมื่อเช็คอิน',
         badge: 'ยอดนิยมอันดับ 1 🌟'
@@ -35,6 +41,12 @@ const CAT_BREEDS = [
         growthSpeed: 'ปานกลาง (+2% ต่อวัน 📈)',
         earType: 'pointed',
         patternType: 'colorpoint',
+        sleepSchedule: {
+            sleepHours: [23, 0, 1, 2, 3, 4, 12, 13],
+            timeRange: '23:00 - 05:00 & 12:00 - 14:00 น.',
+            totalHours: '8 ชม./วัน',
+            habit: 'นอนดึกตื่นเช้าตามเวลาแฟน ชอบนอนขดเฝ้าข้างเตียง ตื่นตัวไว'
+        },
         description: 'แมวไทยมงคลแห่งราชสำนัก ขนสีครีมเนียนนุ่ม ตัดกับแต้มสีช็อกโกแลตเข้มที่ใบหน้า ใบหู เท้า และหาง นัยน์ตาสีฟ้าครามเปล่งประกาย ฉลาดและช่างพูดคุย',
         specialBonus: 'เพิ่มคะแนนสะสมจากการแชทคุยกัน +20%',
         badge: 'แมวมงคลไทย 👑'
@@ -55,6 +67,12 @@ const CAT_BREEDS = [
         growthSpeed: 'เสถียร (+2.5% ต่อวัน ✨)',
         earType: 'pointed',
         patternType: 'odd_eyes_solid',
+        sleepSchedule: {
+            sleepHours: [21, 22, 23, 0, 1, 2, 3, 4, 5],
+            timeRange: '21:00 - 06:00 น.',
+            totalHours: '9 ชม./วัน',
+            habit: 'นอนหัวค่ำหลับลึกดั่งหยกขาว สงบนิ่ง ตื่นมารับแสงอรุณยามเช้า'
+        },
         description: 'แมวไทยโบราณขนสีงาช้างนวลละมุนตา นัยน์ตาสองสี (ฟ้าข้างหนึ่ง ทองข้างหนึ่ง) หายากและทรงคุณค่า อ่อนโยน สงบเสงี่ยม เป็นสัญลักษณ์แห่งรักแท้',
         specialBonus: 'เพิ่มแต้มโชคลาภในการเก็บเกี่ยวดาวนำโชค x1.5',
         badge: 'ตาสองสีนำโชค 💎'
@@ -74,6 +92,12 @@ const CAT_BREEDS = [
         growthSpeed: 'ค่อยเป็นค่อยไป (+2% ต่อวัน 🧸)',
         earType: 'rounded',
         patternType: 'solid_plush',
+        sleepSchedule: {
+            sleepHours: [11, 12, 13, 14, 15, 22, 23, 0, 1, 2, 3, 4, 5, 6],
+            timeRange: '11:00 - 16:00 & 22:00 - 07:00 น.',
+            totalHours: '14 ชม./วัน',
+            habit: 'แชมป์ขี้เซา นอนขดเป็นก้อนกลมข้างโซฟา ไม่กวนใจแต่น่าฟัด'
+        },
         description: 'เจ้าก้อนขนเทาบลูตัวแน่น แก้มยุ้ยน่าฟัดที่สุดในบ้าน นิสัยสุขุม นิ่งสงบ ชอบนอนเฝ้าแฟนทำงานเงียบๆ ไม่กวนใจแต่อบอุ่นหัวใจเสมอ',
         specialBonus: 'บันทึกอารมณ์ก่อนนอนได้รับแต้ม x1.5',
         badge: 'แก้มแน่นน่ากอด 🧸'
@@ -93,6 +117,12 @@ const CAT_BREEDS = [
         growthSpeed: 'นุ่มนวล (+2% ต่อวัน 🌸)',
         earType: 'small_rounded',
         patternType: 'fluffy_longhair',
+        sleepSchedule: {
+            sleepHours: [10, 11, 12, 13, 14, 21, 22, 23, 0, 1, 2, 3, 4, 5],
+            timeRange: '10:00 - 15:00 & 21:00 - 06:00 น.',
+            totalHours: '14 ชม./วัน',
+            habit: 'เจ้าหญิงนิทรา นอนทอดตัวบนเบาะนุ่มฟู ชอบความเงียบสงบ'
+        },
         description: 'เจ้าหญิงขนยาวสลวยนุ่มฟู เดินนวยนาดดั่งขุนนาง นัยน์ตาสีเขียวมรกตกลมโต ชอบให้แฟนแปรงขนและตัดแต่งเล็บให้อย่างทะนุถนอม',
         specialBonus: 'การตัดขนตัดเล็บได้รับแต้มความรัก x2',
         badge: 'เจ้าหญิงขนฟู 🌸'
@@ -112,6 +142,12 @@ const CAT_BREEDS = [
         growthSpeed: 'เร็ว (+3% ต่อวัน 🦉)',
         earType: 'folded_forward',
         patternType: 'marble_tabby',
+        sleepSchedule: {
+            sleepHours: [13, 14, 15, 16, 17, 23, 0, 1, 2, 3, 4, 5],
+            timeRange: '13:00 - 18:00 & 23:00 - 06:00 น.',
+            totalHours: '12 ชม./วัน',
+            habit: 'นอนท่านั่งเป็ดพับขา หูพับตาพริ้ม งีบตอนบ่ายได้น่ารักที่สุด'
+        },
         description: 'น้องแมวหูพับตัวกลม ใบหน้าหวานเหมือนนกฮูกตัวจิ๋ว ชอบนั่งพับขาและเอาหัวมาดุนมือแฟน ขี้อ้อนอันดับหนึ่ง ถ้าคิดถึงแฟนจะกระดิกหางเบาๆ',
         specialBonus: 'ส่งสัญญาณคิดถึงลดคูลดาวน์ลง 50%',
         badge: 'หูพับตาแป๋ว 🦉'
@@ -131,6 +167,12 @@ const CAT_BREEDS = [
         growthSpeed: 'โตไว (+3% ต่อวัน 🎀)',
         earType: 'pointed',
         patternType: 'bicolor_v_mask',
+        sleepSchedule: {
+            sleepHours: [12, 13, 14, 15, 22, 23, 0, 1, 2, 3, 4, 5],
+            timeRange: '12:00 - 16:00 & 22:00 - 06:00 น.',
+            totalHours: '12 ชม./วัน',
+            habit: 'นอนทิ้งตัวปวกเปียก หงายท้องไร้ระวัง อุ้มตอนหลับก็ไม่ตื่น'
+        },
         description: 'แมวพันธุ์ใหญ่ใจดี ขนฟูสลวยพร้อมลายหน้ากากตัว V สีเข้ม นัยน์ตาสีฟ้าไพลินลึก เมื่ออุ้มขึ้นมาจะทิ้งตัวนิ่มเป็นตุ๊กตาผ้า ไม่เคยกางเล็บใส่ใคร',
         specialBonus: 'เช็คอาหารครบ 3 มื้อรับขนมแมวเลียฟรี 1 ชิ้น',
         badge: 'นุ่มนิ่มใจดี 🎀'
@@ -150,6 +192,12 @@ const CAT_BREEDS = [
         growthSpeed: 'เร็วมาก (+3.5% ต่อวัน ☀️)',
         earType: 'large_bat',
         patternType: 'hairless_suede',
+        sleepSchedule: {
+            sleepHours: [14, 15, 22, 23, 0, 1, 2, 3, 4, 5, 6],
+            timeRange: '14:00 - 16:00 & 22:00 - 07:00 น.',
+            totalHours: '11 ชม./วัน',
+            habit: 'นอนมุดซุกใต้ผ้าห่มแนบชิดแฟนเพื่อรับความอบอุ่น ช่างประจบ'
+        },
         description: 'แมวผิวหนังนุ่มนวลอุ่นสบายดั่งลูกพีช ไร้ขนแต่เปี่ยมล้นไปด้วยความรัก ชอบมุดผ้าห่มและนอนซบอกแฟนเพื่อรับความอบอุ่น ช่างประจบเป็นเลิศ',
         specialBonus: 'เช็คอินยามเช้าได้รับแต้มสะสม x1.5',
         badge: 'กอดอุ่นที่สุด ☀️'
@@ -169,6 +217,12 @@ const CAT_BREEDS = [
         growthSpeed: 'แข็งแกร่ง (+3% ต่อวัน 🦁)',
         earType: 'tufted_lynx',
         patternType: 'tiger_classic',
+        sleepSchedule: {
+            sleepHours: [14, 15, 16, 1, 2, 3, 4, 5, 6],
+            timeRange: '14:00 - 17:00 & 01:00 - 07:00 น.',
+            totalHours: '9 ชม./วัน',
+            habit: 'นอนเหยียดตัวยาวเต็มพื้นที่ สไตล์พี่ใหญ่ใจดี ไม่หวั่นไหว'
+        },
         description: 'แมวยักษ์ใหญ่ใจดีที่สุดในโลก มีพู่ขนที่ปลายหูและแผงคอดั่งสิงโต ลายเสือโคร่งคมชัด คอยเฝ้าปกป้องแฟนอย่างเงียบๆ สุขภาพแข็งแกร่ง ไม่ป่วยง่าย',
         specialBonus: 'ป้องกันการเจ็บป่วยและลดโอกาสติดโรคได้ 40%',
         badge: 'พี่ใหญ่ใจดี 🦁'
@@ -188,6 +242,12 @@ const CAT_BREEDS = [
         growthSpeed: 'ไวมาก (+3.5% ต่อวัน 🐆)',
         earType: 'standard',
         patternType: 'leopard_rosette',
+        sleepSchedule: {
+            sleepHours: [13, 14, 2, 3, 4, 5, 6],
+            timeRange: '13:00 - 15:00 & 02:00 - 07:00 น.',
+            totalHours: '7 ชม./วัน',
+            habit: 'นอนน้อยพลังงานล้น งีบชาร์จพลังสั้นๆ แล้วพร้อมวิ่งเล่นซุกซน'
+        },
         description: 'เสือดาวน้อยประจำบ้าน ลายจุดโรเซตต์สีทองวาววับ ปราดเปรียว วิ่งไว กระโดดสูง ชวนแฟนเล่นเกมท้าทายและสร้างรอยยิ้มได้ตลอดทั้งวัน',
         specialBonus: 'ชนะควิซท้าดวลได้รับคะแนนคูณสอง x2',
         badge: 'เสือดาวพลังล้น 🐆'
@@ -207,11 +267,26 @@ const CAT_BREEDS = [
         growthSpeed: 'ลุ้นทุกวัน (+2.5% ต่อวัน 🐾)',
         earType: 'standard',
         patternType: 'mystery_bell',
+        sleepSchedule: {
+            sleepHours: [12, 13, 14, 15, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6],
+            timeRange: '12:00 - 16:00 & 21:00 - 07:00 น.',
+            totalHours: '14 ชม./วัน',
+            habit: 'ลูกแมวน้อยนอนบ่อย กินนมแล้วหลับปุ๋ย หลับฝันดุ๊กดิ๊ก'
+        },
         description: 'ลูกแมวน้อยน่ารักน่าเอ็นดู ยังไม่ปรากฏสายพันธุ์ที่แน่ชัด เลี้ยงดูด้วยความรักจนครบ 2 เดือนจึงจะเผยสายพันธุ์ที่แท้จริงให้คู่รักได้ชื่นชม!',
         specialBonus: 'เพิ่มแต้มความผูกพันและแต้มความรักจากการดูแล x1.2',
         badge: 'ลุ้นสายพันธุ์เมื่อครบ 2 เดือน ❓'
     }
 ];
+
+// Helper: Check if a cat breed is in its designated sleeping period
+function isCatSleepingNow(breedId, currentHour = new Date().getHours()) {
+    const breed = (typeof CAT_BREEDS !== 'undefined') ? CAT_BREEDS.find(b => b.id === breedId) : null;
+    if (breed && breed.sleepSchedule && Array.isArray(breed.sleepSchedule.sleepHours)) {
+        return breed.sleepSchedule.sleepHours.includes(currentHour);
+    }
+    return (currentHour >= 22 || currentHour < 6);
+}
 
 // Point Shop Items Catalog (Cat Care & Toys Items)
 const SHOP_ITEMS = [

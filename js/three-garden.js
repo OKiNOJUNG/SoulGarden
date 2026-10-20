@@ -322,31 +322,31 @@ class Garden3D {
         const eyeColorRight = breed.eyeColorRight ? new THREE.Color(breed.eyeColorRight) : eyeColorLeft;
 
         // ====================================================================
-        // 1. Torso / Pear-Shaped Body (Soft Kitten Anatomy)
+        // 1. Torso / Slim Cute Body (Soft Kitten Anatomy, Not Bloated)
         // ====================================================================
-        const bodyGeo = new THREE.SphereGeometry(0.68 * scaleFactor, 36, 28);
+        const bodyGeo = new THREE.SphereGeometry(0.56 * scaleFactor, 36, 28);
         this.bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-        this.bodyMesh.scale.set(0.88, 1.08, 1.25);
-        this.bodyMesh.position.set(0, 0.76 * scaleFactor, 0);
+        this.bodyMesh.scale.set(0.82, 1.02, 1.04);
+        this.bodyMesh.position.set(0, 0.72 * scaleFactor, 0);
         this.bodyMesh.castShadow = true;
         this.bodyMesh.receiveShadow = true;
         this.catGroup.add(this.bodyMesh);
 
-        // Creamy Chest / Belly Bib
-        const chestGeo = new THREE.SphereGeometry(0.48 * scaleFactor, 24, 20);
+        // Creamy Chest / Slim Belly Bib
+        const chestGeo = new THREE.SphereGeometry(0.38 * scaleFactor, 24, 20);
         this.chestMesh = new THREE.Mesh(chestGeo, bellyMat);
-        this.chestMesh.scale.set(0.72, 0.95, 0.55);
-        this.chestMesh.position.set(0, 0.72 * scaleFactor, 0.48 * scaleFactor);
+        this.chestMesh.scale.set(0.66, 0.88, 0.35);
+        this.chestMesh.position.set(0, 0.68 * scaleFactor, 0.38 * scaleFactor);
         this.catGroup.add(this.chestMesh);
 
         // Body Tabby Stripes (Curved bands across back/flanks)
         if (breed.patternType === 'tabby_striped' || breed.patternType === 'tiger_classic' || breed.id === 'orange_tabby' || breed.id === 'maine_coon' || breed.id === 'bengal') {
-            [-0.22, 0.0, 0.22].forEach((zOffset, i) => {
-                const stripeGeo = new THREE.TorusGeometry(0.60 * scaleFactor, 0.045 * scaleFactor, 12, 28, Math.PI * 0.95);
+            [-0.20, 0.0, 0.20].forEach((zOffset, i) => {
+                const stripeGeo = new THREE.TorusGeometry(0.48 * scaleFactor, 0.038 * scaleFactor, 12, 28, Math.PI * 0.95);
                 const stripe = new THREE.Mesh(stripeGeo, stripeMat);
                 stripe.rotation.x = Math.PI / 2 + 0.1;
                 stripe.rotation.y = Math.PI;
-                stripe.position.set(0, (0.82 + (i % 2) * 0.04) * scaleFactor, zOffset * scaleFactor);
+                stripe.position.set(0, (0.76 + (i % 2) * 0.03) * scaleFactor, zOffset * scaleFactor);
                 this.catGroup.add(stripe);
             });
         }
@@ -642,9 +642,12 @@ class Garden3D {
 
         this.catGroup.add(this.tailGroup);
 
-        // Check hour for initial state
+        // Check hour for initial state according to breed sleep schedule
         const hour = new Date().getHours();
-        if (hour >= 21 || hour < 6) {
+        const shouldSleep = (typeof isCatSleepingNow === 'function') 
+            ? isCatSleepingNow(this.currentBreed, hour) 
+            : (hour >= 22 || hour < 6);
+        if (shouldSleep) {
             this.setAnimState('sleep');
         } else {
             this.setAnimState('sit');
@@ -1364,6 +1367,362 @@ class Garden3D {
         }
     }
 
+    // Helper to create glowing Canvas billboard sprites (Zzz, music notes, paws, text)
+    createSpriteText(text, color = '#FFFFFF', glowColor = 'rgba(255, 107, 74, 0.6)', fontSize = 54) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.font = `bold ${fontSize}px "Prompt", "Plus Jakarta Sans", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = color;
+        ctx.fillText(text, 64, 64);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 1.0 });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(0.38, 0.38, 1);
+        return sprite;
+    }
+
+    // =========================================================================
+    // POPULAR CAT VFX 1: Growth / Level Up / Evolution VFX (การเติบโต)
+    // Features: Expanding Golden Halo Ring, Radiant Pillar of Light, Helical Stardust Vortex,
+    // Celebratory Confetti Burst, Floating Level Up Badge, Triumphant Jump
+    // =========================================================================
+    triggerGrowthVFX() {
+        if (!this.hasCat) return;
+        this.setAnimState('jump');
+        if (window.soundManager) {
+            window.soundManager.playSuccess();
+            setTimeout(() => {
+                window.soundManager.playCatMeow(this.currentBreed, 'happy');
+            }, 300);
+        }
+
+        // 1) Ground Expanding Golden Celestial Ring
+        const ringGeo = new THREE.RingGeometry(0.25, 0.45, 36);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0xFFD700,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.95
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.rotation.x = -Math.PI / 2;
+        ringMesh.position.set(0, 0.06, 0);
+        this.scene.add(ringMesh);
+
+        // 2) Radiant Pillar of Light (Evolution Cylinder)
+        const cylinderGeo = new THREE.CylinderGeometry(0.75, 1.1, 4.2, 32, 1, true);
+        const cylinderMat = new THREE.MeshBasicMaterial({
+            color: 0xFFF9C4,
+            transparent: true,
+            opacity: 0.55,
+            side: THREE.DoubleSide
+        });
+        const pillarMesh = new THREE.Mesh(cylinderGeo, cylinderMat);
+        pillarMesh.position.set(0, 2.1, 0);
+        this.scene.add(pillarMesh);
+
+        // 3) Helical Swirling Stardust Particles (Vortex)
+        const stardustCount = 80;
+        const stardustGeo = new THREE.BufferGeometry();
+        const positions = new Float32Array(stardustCount * 3);
+        const particleAngles = [];
+        const particleSpeeds = [];
+
+        for (let i = 0; i < stardustCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 0.5 + Math.random() * 0.7;
+            const y = Math.random() * 0.4;
+            positions[i * 3] = Math.cos(angle) * radius;
+            positions[i * 3 + 1] = y;
+            positions[i * 3 + 2] = Math.sin(angle) * radius;
+            particleAngles.push(angle);
+            particleSpeeds.push({
+                radius: radius,
+                angleSpeed: 0.08 + Math.random() * 0.06,
+                upSpeed: 0.035 + Math.random() * 0.035
+            });
+        }
+        stardustGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const stardustMat = new THREE.PointsMaterial({
+            color: 0xFFD700,
+            size: 0.18,
+            transparent: true,
+            opacity: 0.95
+        });
+        const stardustPoints = new THREE.Points(stardustGeo, stardustMat);
+        this.scene.add(stardustPoints);
+
+        // 4) Floating Level Up Badge Sprite
+        const levelUpBadge = this.createSpriteText('🌟 LEVEL UP!', '#FFD700', 'rgba(255, 215, 0, 0.8)', 44);
+        levelUpBadge.scale.set(0.9, 0.45, 1);
+        levelUpBadge.position.set(0, 2.2, 0.6);
+        this.scene.add(levelUpBadge);
+
+        // Register animation updates
+        this.particleSystems.push({
+            mesh: ringMesh,
+            life: 2.2,
+            update: () => {
+                ringMesh.scale.x += 0.06;
+                ringMesh.scale.y += 0.06;
+                ringMat.opacity = Math.max(0, ringMat.opacity - 0.015);
+            }
+        });
+
+        this.particleSystems.push({
+            mesh: pillarMesh,
+            life: 2.0,
+            update: () => {
+                pillarMesh.rotation.y += 0.04;
+                pillarMat.opacity = Math.max(0, pillarMat.opacity - 0.015);
+            }
+        });
+
+        this.particleSystems.push({
+            mesh: stardustPoints,
+            life: 2.5,
+            update: () => {
+                const pos = stardustPoints.geometry.attributes.position.array;
+                for (let i = 0; i < stardustCount; i++) {
+                    particleAngles[i] += particleSpeeds[i].angleSpeed;
+                    pos[i * 3] = Math.cos(particleAngles[i]) * particleSpeeds[i].radius;
+                    pos[i * 3 + 1] += particleSpeeds[i].upSpeed;
+                    pos[i * 3 + 2] = Math.sin(particleAngles[i]) * particleSpeeds[i].radius;
+                }
+                stardustPoints.geometry.attributes.position.needsUpdate = true;
+            }
+        });
+
+        this.particleSystems.push({
+            mesh: levelUpBadge,
+            life: 2.4,
+            update: () => {
+                levelUpBadge.position.y += 0.012;
+                levelUpBadge.material.opacity = Math.max(0, levelUpBadge.material.opacity - 0.012);
+            }
+        });
+
+        // Trigger celebratory confetti in browser
+        if (typeof confetti === 'function') {
+            confetti({
+                particleCount: 50,
+                spread: 60,
+                origin: { y: 0.6 },
+                colors: ['#FF6B4A', '#FF5376', '#FFD700', '#2EC4B6', '#B388FF']
+            });
+        }
+    }
+
+    // =========================================================================
+    // POPULAR CAT VFX 2: Sleeping & Dreamy Nap VFX (การนอน)
+    // Features: Floating swaying "Zzz" cartoon sprites, Twilight stars & Lavender orbs aura,
+    // Cozily curled loafing pose with peaceful eye-blink
+    // =========================================================================
+    triggerSleepVFX() {
+        if (!this.hasCat) return;
+        this.setAnimState('sleep');
+        if (window.soundManager) {
+            window.soundManager.playCatPurr();
+        }
+
+        // Spawn a burst of 3 staggered Zzz sprites
+        [0, 350, 750].forEach((delay, idx) => {
+            setTimeout(() => {
+                this.spawnSleepZzzParticle(idx);
+            }, delay);
+        });
+
+        // Twilight Starry Dream Orbs Aura (Soft lavender & twilight blue)
+        const starCount = 35;
+        const starGeo = new THREE.BufferGeometry();
+        const positions = new Float32Array(starCount * 3);
+        const velocities = [];
+
+        for (let i = 0; i < starCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 0.4 + Math.random() * 0.9;
+            positions[i * 3] = Math.cos(angle) * dist;
+            positions[i * 3 + 1] = 0.2 + Math.random() * 1.2;
+            positions[i * 3 + 2] = Math.sin(angle) * dist;
+            velocities.push({
+                angle: angle,
+                dist: dist,
+                speed: 0.015 + Math.random() * 0.02,
+                yPhase: Math.random() * Math.PI * 2
+            });
+        }
+
+        starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const starMat = new THREE.PointsMaterial({
+            color: 0xB388FF, // Soft dreamy lavender
+            size: 0.16,
+            transparent: true,
+            opacity: 0.90
+        });
+        const starPoints = new THREE.Points(starGeo, starMat);
+        this.scene.add(starPoints);
+
+        this.particleSystems.push({
+            mesh: starPoints,
+            life: 3.5,
+            update: () => {
+                const pos = starPoints.geometry.attributes.position.array;
+                for (let i = 0; i < starCount; i++) {
+                    velocities[i].angle += velocities[i].speed;
+                    pos[i * 3] = Math.cos(velocities[i].angle) * velocities[i].dist;
+                    pos[i * 3 + 1] += Math.sin(velocities[i].yPhase) * 0.005;
+                    velocities[i].yPhase += 0.04;
+                    pos[i * 3 + 2] = Math.sin(velocities[i].angle) * velocities[i].dist;
+                }
+                starPoints.geometry.attributes.position.needsUpdate = true;
+                starMat.opacity = Math.max(0, starMat.opacity - 0.006);
+            }
+        });
+    }
+
+    spawnSleepZzzParticle(variantIdx = 0) {
+        if (!this.hasCat) return;
+        const texts = ['Zzz', 'Zz', 'z'];
+        const text = texts[variantIdx % texts.length];
+        const colors = ['#E1BEE7', '#CE93D8', '#BA68C8'];
+        const sprite = this.createSpriteText(text, colors[variantIdx % colors.length], 'rgba(186, 104, 200, 0.6)', 56);
+
+        // Spawn right by cat's snoozing nose
+        sprite.position.set(0.12 + (variantIdx * 0.05), 0.72 + (variantIdx * 0.15), 0.55);
+        this.scene.add(sprite);
+
+        let phase = Math.random() * Math.PI;
+        this.particleSystems.push({
+            mesh: sprite,
+            life: 2.8,
+            update: () => {
+                phase += 0.06;
+                sprite.position.y += 0.014;
+                sprite.position.x += Math.sin(phase) * 0.006;
+                sprite.scale.x += 0.0015;
+                sprite.scale.y += 0.0015;
+                sprite.material.opacity = Math.max(0, sprite.material.opacity - 0.012);
+            }
+        });
+    }
+
+    // =========================================================================
+    // POPULAR CAT VFX 3: Play & Joy Energy VFX (การเล่น)
+    // Features: Floating dancing musical notes (♪ ♫ ♬), floor impact dust puffs,
+    // bouncing star bursts, tail whip and bouncy hops
+    // =========================================================================
+    triggerPlayJoyVFX(toyType = 'cat_toy_feather') {
+        if (!this.hasCat) return;
+        this.setAnimState('jump');
+        if (window.soundManager) {
+            window.soundManager.playCatMeow(this.currentBreed, 'happy');
+        }
+
+        // 1) Floor Impact Dust Puff Rings
+        const dustGeo = new THREE.RingGeometry(0.15, 0.28, 24);
+        const dustMat = new THREE.MeshBasicMaterial({
+            color: 0xFFE0B2,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.85
+        });
+        const dustRing = new THREE.Mesh(dustGeo, dustMat);
+        dustRing.rotation.x = -Math.PI / 2;
+        dustRing.position.set(0, 0.05, 0.2);
+        this.scene.add(dustRing);
+
+        this.particleSystems.push({
+            mesh: dustRing,
+            life: 0.9,
+            update: () => {
+                dustRing.scale.x += 0.08;
+                dustRing.scale.y += 0.08;
+                dustMat.opacity = Math.max(0, dustMat.opacity - 0.035);
+            }
+        });
+
+        // 2) Dancing Musical Notes (♪ ♫ ♬)
+        const noteSymbols = ['♪', '♫', '♬', '✨'];
+        const noteColors = ['#FF4081', '#00E5FF', '#FFD700', '#69F0AE'];
+
+        noteSymbols.forEach((sym, idx) => {
+            setTimeout(() => {
+                const noteSprite = this.createSpriteText(sym, noteColors[idx], 'rgba(255, 64, 129, 0.6)', 58);
+                const startX = (idx - 1.5) * 0.35;
+                noteSprite.position.set(startX, 1.4, 0.4);
+                this.scene.add(noteSprite);
+
+                let wavePhase = idx * 1.2;
+                this.particleSystems.push({
+                    mesh: noteSprite,
+                    life: 2.2,
+                    update: () => {
+                        wavePhase += 0.08;
+                        noteSprite.position.y += 0.016;
+                        noteSprite.position.x += Math.sin(wavePhase) * 0.008;
+                        noteSprite.material.opacity = Math.max(0, noteSprite.material.opacity - 0.014);
+                    }
+                });
+            }, idx * 180);
+        });
+
+        // 3) Bouncing Starburst Shower
+        const starCount = 30;
+        const starGeo = new THREE.BufferGeometry();
+        const positions = new Float32Array(starCount * 3);
+        const velocities = [];
+
+        for (let i = 0; i < starCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 1.2;
+            positions[i * 3 + 1] = 0.8 + Math.random() * 0.8;
+            positions[i * 3 + 2] = 0.2 + (Math.random() - 0.5) * 1.0;
+            velocities.push({
+                x: (Math.random() - 0.5) * 0.035,
+                y: 0.03 + Math.random() * 0.045,
+                z: (Math.random() - 0.5) * 0.035
+            });
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const starMat = new THREE.PointsMaterial({
+            color: 0xFFD54F,
+            size: 0.17,
+            transparent: true,
+            opacity: 0.95
+        });
+        const stars = new THREE.Points(starGeo, starMat);
+        this.scene.add(stars);
+
+        this.particleSystems.push({
+            mesh: stars,
+            life: 1.8,
+            update: () => {
+                const pos = stars.geometry.attributes.position.array;
+                for (let k = 0; k < starCount; k++) {
+                    pos[k * 3] += velocities[k].x;
+                    pos[k * 3 + 1] += velocities[k].y;
+                    pos[k * 3 + 2] += velocities[k].z;
+                }
+                stars.geometry.attributes.position.needsUpdate = true;
+                starMat.opacity = Math.max(0, starMat.opacity - 0.016);
+            }
+        });
+    }
+
+    // =========================================================================
+    // POPULAR CAT VFX 4: Affection & Heart Fountain (ความรัก & ลูบหัว)
+    // Features: Heart explosion, forehead sparkle shine, purring sound
+    // =========================================================================
+    triggerAffectionVFX() {
+        this.triggerPetHead();
+    }
+
     setupControls() {
         let isDragging = false;
         const dom = this.renderer.domElement;
@@ -1507,9 +1866,15 @@ class Garden3D {
                 if (this.leftEyelid) this.leftEyelid.visible = blinkTime;
                 if (this.rightEyelid) this.rightEyelid.visible = blinkTime;
 
-                // After 10s of sitting, walk around for a bit (daytime only)
+                // Breed-aware Sleep vs Walk transition
                 const hour = new Date().getHours();
-                if (this.animTimer > 12 && (hour >= 6 && hour < 21) && !this.isInteracting) {
+                const isSleepTime = (typeof isCatSleepingNow === 'function') 
+                    ? isCatSleepingNow(this.currentBreed, hour) 
+                    : (hour >= 22 || hour < 6);
+
+                if (isSleepTime && !this.isInteracting) {
+                    this.setAnimState('sleep');
+                } else if (this.animTimer > 12 && !isSleepTime && !this.isInteracting) {
                     this.setAnimState('walk');
                 }
             } else if (this.animState === 'walk') {
@@ -1551,6 +1916,21 @@ class Garden3D {
                 this.catGroup.position.y = -0.25 + sleepBob;
                 if (this.leftEyelid) this.leftEyelid.visible = true;
                 if (this.rightEyelid) this.rightEyelid.visible = true;
+
+                // Check if waking up time arrived
+                const hour = new Date().getHours();
+                const isSleepTime = (typeof isCatSleepingNow === 'function') 
+                    ? isCatSleepingNow(this.currentBreed, hour) 
+                    : (hour >= 22 || hour < 6);
+                if (!isSleepTime && this.animTimer > 8 && !this.isInteracting) {
+                    this.setAnimState('sit');
+                }
+
+                // Automatic Zzz floater emission every 2.4s while asleep
+                if (!this.lastSleepZzzTime || time - this.lastSleepZzzTime > 2.4) {
+                    this.lastSleepZzzTime = time;
+                    this.spawnSleepZzzParticle(Math.floor(Math.random() * 3));
+                }
             } else if (this.animState === 'smile') {
                 if (this.animTimer > 2.5) {
                     this.setAnimState('sit');

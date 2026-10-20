@@ -17,6 +17,7 @@ class AppController {
         this.activePlaySeconds = 0;
         this.activePlayToy = 'hands';
         this.currentMealHistoryPartner = 'all';
+        this.pendingChatImages = [];
 
         this.init();
     }
@@ -114,19 +115,11 @@ class AppController {
             this.updatePresenceUI();
         });
 
-        // Nudge listener
+        // Nudge listener (Cross-device & local)
         window.onPartnerNudgeReceived = (payload) => {
-            if (payload.sender !== this.currentUser) {
+            if (payload && payload.sender !== this.currentUser) {
                 window.soundManager.playNudge('heartbeat');
-                this.showFloatingHeart();
-                Swal.fire({
-                    title: `💖 ${payload.senderName} ส่งสัญญาณคิดถึง!`,
-                    text: payload.message || 'ส่งหัวใจบอกว่าคิดถึงเธอสุดหัวใจนะ',
-                    icon: 'info',
-                    timer: 3500,
-                    showConfirmButton: false,
-                    backdrop: `rgba(255, 83, 118, 0.15)`
-                });
+                this.triggerFullScreenMissYouVFX(payload.senderName, payload.message, false);
             }
         };
     }
@@ -1162,14 +1155,36 @@ class AppController {
                 }
             }
 
+            let imagesHtml = '';
+            if (msg.images && Array.isArray(msg.images) && msg.images.length > 0) {
+                const count = msg.images.length;
+                const gridClass = count === 1 ? 'grid-1' : (count === 2 ? 'grid-2' : 'grid-multi');
+                const imgsHtml = msg.images.map((src) => `
+                    <img src="${src}" class="chat-thumb-img" alt="ภาพแนบ" loading="lazy">
+                `).join('');
+                imagesHtml = `<div class="chat-image-grid ${gridClass}">${imgsHtml}</div>`;
+            }
+
+            const textHtml = msg.text ? `<div class="chat-text-content">${msg.text}</div>` : '';
+
             const wrap = document.createElement('div');
             wrap.className = `chat-bubble-wrap ${isOutgoing ? 'outgoing-bubble' : 'incoming-bubble'}`;
             wrap.innerHTML = `
-                <div class="chat-bubble">${msg.text}</div>
+                <div class="chat-bubble">
+                    ${imagesHtml}
+                    ${textHtml}
+                </div>
                 <div class="chat-meta-row">
                     <span>${senderUser} • ${timeFormatted} ${readStatusHtml}</span>
                 </div>
             `;
+
+            wrap.querySelectorAll('.chat-thumb-img').forEach(imgEl => {
+                imgEl.addEventListener('click', () => {
+                    this.openImageLightbox(imgEl.src);
+                });
+            });
+
             container.appendChild(wrap);
         });
 
@@ -1208,46 +1223,89 @@ class AppController {
             const userAttempts = (q.userAttempts && q.userAttempts[this.currentUser]) || 0;
             const wrongPicks = (q.wrongPicks && q.wrongPicks[this.currentUser]) || [];
 
+            const partnerId = q.creator === 'nether' ? 'Pooja' : 'nether';
+            const partnerName = q.creator === 'nether' ? 'Pooja 🌸' : 'Nether 👨‍💻';
+            const partnerAnswer = q.partnerAnswered || (q.answers && q.answers[partnerId]);
+            const isPartnerAnswered = !!partnerAnswer;
+
             const card = document.createElement('div');
             card.className = 'quiz-card';
 
             const optionsHtml = q.options.map((opt, idx) => {
                 const isWrongPicked = wrongPicks.includes(idx);
-                const isCorrectRevealed = hasAnswered && idx === q.correctIndex;
+                const isCorrectRevealed = (hasAnswered || isCreatedByMe) && idx === q.correctIndex;
+                const isPartnerPicked = isCreatedByMe && partnerAnswer && partnerAnswer.selectedOptionIndex === idx;
+
                 let btnClass = 'quiz-opt-btn';
                 if (isWrongPicked) btnClass += ' wrong-choice';
                 if (isCorrectRevealed) btnClass += ' correct-choice';
                 const isDisabled = isCreatedByMe || hasAnswered || isWrongPicked;
+
+                let badgeHtml = '';
+                if (isCreatedByMe) {
+                    if (isCorrectRevealed) {
+                        badgeHtml += `<span style="font-size: 10px; background: #C8E6C9; color: #2E7D32; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: auto;">🎯 คำตอบเฉลยของคุณ</span>`;
+                    }
+                    if (isPartnerPicked) {
+                        const correctColor = partnerAnswer.isCorrect ? '#2E7D32' : '#C62828';
+                        const bgColor = partnerAnswer.isCorrect ? '#E8F5E9' : '#FFEBEE';
+                        badgeHtml += `<span style="font-size: 10px; background: ${bgColor}; color: ${correctColor}; padding: 2px 6px; border-radius: 4px; font-weight: 800; margin-left: auto;">👉 แฟนตอบข้อนี้ (${partnerAnswer.isCorrect ? '✅ ถูกต้อง' : '❌ ผิด'})</span>`;
+                    }
+                }
+
                 return `
-                    <button class="${btnClass}" data-quiz-id="${q.id}" data-opt-idx="${idx}" ${isDisabled ? 'disabled' : ''}>
-                        ${idx + 1}. ${opt}
+                    <button class="${btnClass}" data-quiz-id="${q.id}" data-opt-idx="${idx}" ${isDisabled ? 'disabled' : ''} style="${isPartnerPicked ? 'border: 2px solid #FF5376; background: #FFF0F3;' : ''}">
+                        <span>${idx + 1}. ${opt}</span>
+                        ${badgeHtml}
                     </button>
                 `;
             }).join('');
 
             let footerStatusHtml = '';
             if (isCreatedByMe) {
-                footerStatusHtml = `
-                    <div style="font-size: 11px; color: #D84315; font-weight: 700; background: #FBE9E7; padding: 6px 10px; border-radius: 8px;">
-                        🔒 คุณเป็นผู้สร้างคำถามนี้ ไม่สามารถตอบเองได้ (รอให้แฟนมาตอบ)
-                    </div>
-                `;
+                if (isPartnerAnswered) {
+                    const isCorrect = partnerAnswer.isCorrect;
+                    footerStatusHtml = `
+                        <div style="background: ${isCorrect ? '#E8F5E9' : '#FFF3E0'}; border: 1.5px solid ${isCorrect ? '#A5D6A7' : '#FFCC80'}; border-radius: 8px; padding: 10px 12px; margin-top: 10px;">
+                            <div style="font-size: 12px; font-weight: 800; color: ${isCorrect ? '#2E7D32' : '#E65100'}; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span>💌 ${partnerName} ตอบคำถามข้อนี้แล้ว!</span>
+                                <span style="font-size: 10.5px; opacity: 0.85;">${partnerAnswer.answeredAt ? new Date(partnerAnswer.answeredAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.' : 'เมื่อสักครู่'}</span>
+                            </div>
+                            <div style="font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px;">
+                                คำตอบที่แฟนเลือก: <span style="color: ${isCorrect ? '#2E7D32' : '#C62828'};">ข้อ ${partnerAnswer.selectedOptionIndex + 1}. "${partnerAnswer.selectedOptionText}"</span>
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">
+                                ${isCorrect 
+                                    ? `🎉 รู้ใจกันสุดๆ! ตอบถูกในรอบที่ ${partnerAnswer.attemptNumber || 1} (ได้รับแต้ม +${q.pointsAwarded && q.pointsAwarded[partnerId] ? q.pointsAwarded[partnerId] : q.reward} แต้ม)` 
+                                    : (partnerAnswer.attemptNumber === 1 
+                                        ? `⚠️ ตอบครั้งแรกยังไม่ถูก กำลังรอให้แฟนเลือกใหม่อีก 1 ครั้ง` 
+                                        : `😢 ตอบไม่ถูกทั้ง 2 ครั้ง (เฉลยคือข้อ ${q.correctIndex + 1}. "${q.options[q.correctIndex]}")`)}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    footerStatusHtml = `
+                        <div style="font-size: 11.5px; color: #D84315; font-weight: 700; background: #FBE9E7; border: 1.5px dashed #FFAB91; padding: 8px 12px; border-radius: 8px; margin-top: 10px;">
+                            ⏳ คุณเป็นผู้สร้างคำถามนี้ (กำลังรอให้ ${partnerName} มาตอบคำถาม...)
+                        </div>
+                    `;
+                }
             } else if (hasAnswered) {
                 const awardGiven = q.pointsAwarded && q.pointsAwarded[this.currentUser] !== undefined ? q.pointsAwarded[this.currentUser] : 0;
                 footerStatusHtml = `
-                    <div style="font-size: 12px; color: var(--accent-mint); font-weight: 700; background: #E8F5E9; padding: 6px 10px; border-radius: 8px;">
+                    <div style="font-size: 12px; color: var(--accent-mint); font-weight: 700; background: #E8F5E9; padding: 6px 10px; border-radius: 8px; margin-top: 10px;">
                         ✅ คุณได้ตอบคำถามนี้แล้ว (ได้รับ +${awardGiven} แต้ม)
                     </div>
                 `;
             } else if (userAttempts === 1) {
                 footerStatusHtml = `
-                    <div style="font-size: 11px; color: #E65100; font-weight: 700; background: #FFF3E0; padding: 6px 10px; border-radius: 8px;">
+                    <div style="font-size: 11px; color: #E65100; font-weight: 700; background: #FFF3E0; padding: 6px 10px; border-radius: 8px; margin-top: 10px;">
                         ⚠️ ตอบครั้งแรกยังไม่ถูก! เหลือโอกาสเลือกครั้งที่ 2 (หากตอบถูกจะได้คะแนนครึ่งนึง: +${Math.floor(q.reward / 2)} แต้ม)
                     </div>
                 `;
             } else {
                 footerStatusHtml = `
-                    <div style="font-size: 11px; color: #5D4037; opacity: 0.85;">
+                    <div style="font-size: 11px; color: #5D4037; opacity: 0.85; margin-top: 10px;">
                         💡 สามารถเลือกตอบได้ 2 ครั้ง: ครั้งแรกถูกได้เต็ม (+${q.reward} แต้ม), ครั้งที่สองถูกได้ครึ่งนึง (+${Math.floor(q.reward / 2)} แต้ม)
                     </div>
                 `;
@@ -1376,12 +1434,17 @@ class AppController {
             const correctOpt = (q.options && q.correctIndex !== undefined) ? q.options[q.correctIndex] : 'ไม่มีเฉลย';
 
             let statusHtml = '';
-            if (q.answered) {
-                const isCorrect = q.selectedOptionIndex === q.correctIndex;
-                const answeredByName = (data.users && data.users[q.answeredBy]) ? data.users[q.answeredBy].name : q.answeredBy;
+            const partnerAns = q.partnerAnswered || {};
+            const isAnswered = q.answered || !!q.partnerAnswered || (q.completedBy && q.completedBy.length > 0);
+            if (isAnswered) {
+                const chosenIdx = partnerAns.selectedOptionIndex !== undefined ? partnerAns.selectedOptionIndex : q.selectedOptionIndex;
+                const chosenText = partnerAns.selectedOptionText || (q.options && chosenIdx !== undefined ? q.options[chosenIdx] : '');
+                const isCorrect = partnerAns.isCorrect !== undefined ? partnerAns.isCorrect : (chosenIdx === q.correctIndex);
+                const answeredByName = partnerAns.userName || ((data.users && data.users[q.answeredBy]) ? data.users[q.answeredBy].name : q.answeredBy || 'แฟน');
                 statusHtml = `
-                    <div style="margin-top: 6px; font-size: 11px; padding: 4px 8px; border-radius: 6px; background: ${isCorrect ? '#E8F5E9' : '#FFEBEE'}; color: ${isCorrect ? '#2E7D32' : '#C62828'}; font-weight: 700;">
-                        ${isCorrect ? '✅ ตอบถูกต้อง (+30 แต้ม)' : '❌ ตอบผิด'} โดย ${answeredByName}
+                    <div style="margin-top: 6px; font-size: 11px; padding: 6px 10px; border-radius: 6px; background: ${isCorrect ? '#E8F5E9' : '#FFEBEE'}; color: ${isCorrect ? '#2E7D32' : '#C62828'}; font-weight: 700;">
+                        <div>${isCorrect ? '✅ ตอบถูกต้อง (+30 แต้ม)' : '❌ ตอบผิด'} โดย ${answeredByName}</div>
+                        ${chosenText ? `<div style="font-weight: 500; margin-top: 2px; color: var(--text-primary);">คำตอบที่แฟนเลือก: <strong>ข้อ ${(chosenIdx !== undefined ? chosenIdx + 1 : '')}. "${chosenText}"</strong></div>` : ''}
                     </div>
                 `;
             } else {
@@ -1470,6 +1533,15 @@ class AppController {
                     ${isSelected ? `<span class="tree-badge-pill" style="font-size: 10px;">สายพันธุ์ของน้อง</span>` : `<span style="font-size: 10px; color: var(--text-muted); background: var(--bg-subtle); padding: 2px 6px; border-radius: 4px;">ข้อมูลสายพันธุ์</span>`}
                 </div>
                 <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">${b.tagline}</p>
+                <div style="background: rgba(106, 27, 154, 0.06); border: 1px dashed rgba(171, 71, 188, 0.35); border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; font-size: 10.5px;">
+                    <div style="font-weight: 700; color: #6A1B9A; display: flex; align-items: center; gap: 4px;">
+                        <span>💤 เวลานอน:</span>
+                        <span>${b.sleepSchedule ? b.sleepSchedule.timeRange : '22:00 - 06:00 น.'} (${b.sleepSchedule ? b.sleepSchedule.totalHours : '8 ชม./วัน'})</span>
+                    </div>
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">
+                        🌙 ${b.sleepSchedule ? b.sleepSchedule.habit : 'นอนพักผ่อนอย่างสงบนิ่ง'}
+                    </div>
+                </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 10.5px; color: var(--text-muted);">
                     <span>🐟 อาหาร: ${mainFood}</span>
                     <span>💖 แมวเลีย: ${treat}</span>
@@ -2038,20 +2110,113 @@ class AppController {
         });
     }
 
-    // 9. Chat Message
+    // 9. Chat Message & Multi-image Attachment
+    async compressImageFile(file, maxWidth = 800, maxHeight = 800, quality = 0.75) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round((width * maxHeight) / height);
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(compressedDataUrl);
+                };
+                img.onerror = () => resolve(null);
+                img.src = e.target.result;
+            };
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    renderChatImagePreviewTray() {
+        const tray = document.getElementById('chatImagePreviewTray');
+        const thumbs = document.getElementById('chatPreviewThumbnails');
+        if (!tray || !thumbs) return;
+
+        if (!this.pendingChatImages || this.pendingChatImages.length === 0) {
+            tray.style.display = 'none';
+            thumbs.innerHTML = '';
+            return;
+        }
+
+        tray.style.display = 'flex';
+        thumbs.innerHTML = '';
+        this.pendingChatImages.forEach((imgSrc, idx) => {
+            const chip = document.createElement('div');
+            chip.className = 'preview-thumb-chip';
+            chip.innerHTML = `
+                <img src="${imgSrc}" alt="รูปภาพแนบ">
+                <button type="button" class="preview-thumb-remove" title="ลบรูปนี้">×</button>
+            `;
+            chip.querySelector('.preview-thumb-remove').addEventListener('click', (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                this.pendingChatImages.splice(idx, 1);
+                this.renderChatImagePreviewTray();
+            });
+            thumbs.appendChild(chip);
+        });
+    }
+
+    openImageLightbox(src) {
+        Swal.fire({
+            imageUrl: src,
+            imageAlt: 'รูปภาพในแชท',
+            showConfirmButton: false,
+            showCloseButton: true,
+            background: 'rgba(0, 0, 0, 0.88)',
+            customClass: { popup: 'swal2-image-lightbox', image: 'chat-lightbox-img' }
+        });
+    }
+
     sendChatMessage(text) {
-        if (!text.trim()) return;
+        const trimmed = (text || '').trim();
+        const hasImages = this.pendingChatImages && this.pendingChatImages.length > 0;
+        if (!trimmed && !hasImages) return;
+
         const data = window.appStorage.getLocalData();
-        data.chatMessages.push({
+        const newMsg = {
             id: 'msg_' + Date.now(),
             sender: this.currentUser,
-            text: text.trim(),
+            text: trimmed,
             timestamp: new Date().toISOString()
-        });
+        };
+
+        if (hasImages) {
+            newMsg.images = [...this.pendingChatImages];
+        }
+
+        data.chatMessages.push(newMsg);
         data.users[this.currentUser].points += 2;
         window.appStorage.saveLocalData(data);
-        window.soundManager.playMessage(false);
-        document.getElementById('chatMessageInput').value = '';
+        if (window.soundManager) window.soundManager.playMessage(false);
+
+        const inputEl = document.getElementById('chatMessageInput');
+        if (inputEl) inputEl.value = '';
+
+        this.pendingChatImages = [];
+        this.renderChatImagePreviewTray();
+        this.renderChatView();
     }
 
     // 10. Quiz (Daily 1-Question Limit)
@@ -2083,6 +2248,23 @@ class AppController {
 
         const isCorrect = optIdx === target.correctIndex;
 
+        // Record partner's selected answer so creator sees it immediately
+        target.partnerAnswered = {
+            userId: this.currentUser,
+            userName: data.users[this.currentUser].name,
+            selectedOptionIndex: optIdx,
+            selectedOptionText: target.options[optIdx],
+            isCorrect: isCorrect,
+            attemptNumber: newAttempts,
+            answeredAt: new Date().toISOString()
+        };
+        target.answered = isCorrect || newAttempts >= 2;
+        target.answeredBy = this.currentUser;
+        target.selectedOptionIndex = optIdx;
+        target.selectedOptionText = target.options[optIdx];
+        if (!target.answers) target.answers = {};
+        target.answers[this.currentUser] = target.partnerAnswered;
+
         if (isCorrect) {
             target.completedBy.push(this.currentUser);
             // 1st attempt = 100%, 2nd attempt = 50%
@@ -2094,8 +2276,8 @@ class AppController {
             window.appStorage.logActivity(
                 this.currentUser, 
                 data.users[this.currentUser].name, 
-                `ตอบควิซประจำวันถูกต้อง (${newAttempts === 1 ? 'ครั้งแรก เต็ม 100%' : 'ครั้งที่สอง 50%'}) 🎯`, 
-                `รับรางวัล +${pointsWon} แต้ม`
+                `ตอบควิซท้าดวล: ข้อ ${optIdx + 1}. "${target.options[optIdx]}" (✅ ถูกต้อง!) 🎯`, 
+                `รับรางวัล +${pointsWon} แต้ม (${newAttempts === 1 ? 'เต็ม 100%' : '50%'})`
             );
 
             window.soundManager.playReward();
@@ -2117,6 +2299,12 @@ class AppController {
             if (newAttempts === 1) {
                 // First wrong pick - give second chance
                 window.appStorage.saveLocalData(data);
+                window.appStorage.logActivity(
+                    this.currentUser, 
+                    data.users[this.currentUser].name, 
+                    `ตอบควิซท้าดวล: ข้อ ${optIdx + 1}. "${target.options[optIdx]}" (❌ ผิดรอบแรก) 🎯`, 
+                    `เหลือโอกาสเลือกอีก 1 ครั้ง`
+                );
                 window.soundManager.playError();
                 
                 Swal.fire({
@@ -2132,6 +2320,12 @@ class AppController {
                 target.completedBy.push(this.currentUser);
                 target.pointsAwarded[this.currentUser] = 0;
                 window.appStorage.saveLocalData(data);
+                window.appStorage.logActivity(
+                    this.currentUser, 
+                    data.users[this.currentUser].name, 
+                    `ตอบควิซท้าดวล: ข้อ ${optIdx + 1}. "${target.options[optIdx]}" (❌ ผิดทั้ง 2 ครั้ง) 🎯`, 
+                    `เฉลยคือข้อ ${target.correctIndex + 1}. "${target.options[target.correctIndex]}"`
+                );
                 window.soundManager.playError();
 
                 Swal.fire({
@@ -2294,7 +2488,9 @@ class AppController {
         const partner = data.users[partnerId];
 
         window.soundManager.playNudge('heartbeat');
-        this.showFloatingHeart();
+
+        // Immediate visual immersion for sender
+        this.triggerFullScreenMissYouVFX(me.name, `ส่งสัญญาณบอกรักและความคิดถึงไปยัง ${partner.name} แล้วนะ 💖`, true);
 
         window.appStorage.sendNudgeBroadcast({
             sender: this.currentUser,
@@ -2305,6 +2501,89 @@ class AppController {
 
         window.appStorage.logActivity(this.currentUser, me.name, 'ส่งสัญญาณคิดถึง 💖', `สะกิดบอก ${partner.name} ว่าคิดถึง`);
         this.showToast(`ส่งสัญญาณบอก ${partner.name} แล้วว่าคิดถึง! 💖`);
+    }
+
+    triggerFullScreenMissYouVFX(senderName, message, isSelf = false) {
+        // Remove existing overlay if any
+        const existing = document.getElementById('missYouFullScreenOverlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'missYouFullScreenOverlay';
+
+        // Ripple glowing rings
+        const ripples = document.createElement('div');
+        ripples.className = 'miss-you-ripples-container';
+        ripples.innerHTML = `
+            <div class="miss-you-ripple-ring"></div>
+            <div class="miss-you-ripple-ring"></div>
+            <div class="miss-you-ripple-ring"></div>
+        `;
+        overlay.appendChild(ripples);
+
+        // Particle explosion wrap
+        const particlesWrap = document.createElement('div');
+        particlesWrap.className = 'miss-you-particles-wrap';
+        const symbols = ['💖', '💕', '💗', '✨', '🌸', '😽', '💌', '🌟', '💓', '🐾', '🥰'];
+        for (let i = 0; i < 30; i++) {
+            const p = document.createElement('span');
+            p.className = 'miss-you-particle';
+            p.innerText = symbols[Math.floor(Math.random() * symbols.length)];
+            const tx = (Math.random() - 0.5) * 520;
+            const ty = -90 - Math.random() * 380;
+            const rot = (Math.random() - 0.5) * 360;
+            const delay = Math.random() * 0.55;
+            p.style.setProperty('--tx', `${tx}px`);
+            p.style.setProperty('--ty', `${ty}px`);
+            p.style.setProperty('--rot', `${rot}deg`);
+            p.style.left = `${35 + Math.random() * 30}%`;
+            p.style.top = `${45 + Math.random() * 20}%`;
+            p.style.animationDelay = `${delay}s`;
+            p.style.fontSize = `${18 + Math.random() * 24}px`;
+            particlesWrap.appendChild(p);
+        }
+        overlay.appendChild(particlesWrap);
+
+        // Center Glassmorphism Card
+        const card = document.createElement('div');
+        card.className = 'miss-you-card';
+        card.innerHTML = `
+            <div class="miss-you-big-heart">💖</div>
+            <div class="miss-you-sender-badge">
+                <span>💌</span>
+                <span>${isSelf ? 'ส่งสัญญาณบอกรักเรียบร้อย' : 'สัญญาณความคิดถึงจากคนพิเศษ'}</span>
+            </div>
+            <h2 class="miss-you-title">
+                ${isSelf ? `ส่งคลื่น <span>ความคิดถึง</span> ถึงแฟนแล้ว!` : `<span>${senderName}</span> คิดถึงคุณสุดหัวใจ!`}
+            </h2>
+            <p class="miss-you-text">${message || 'ส่งหัวใจบอกว่าคิดถึงเธอสุดหัวใจนะ 💖'}</p>
+            <p class="miss-you-subhint">✨ แตะที่ใดก็ได้เพื่อปิดหน้าต่างนี้ ✨</p>
+        `;
+        overlay.appendChild(card);
+
+        // Dismiss handler
+        let isClosed = false;
+        const dismiss = () => {
+            if (isClosed) return;
+            isClosed = true;
+            overlay.classList.add('fade-out');
+            setTimeout(() => {
+                if (overlay.parentNode) overlay.remove();
+            }, 500);
+        };
+        overlay.addEventListener('click', dismiss);
+
+        document.body.appendChild(overlay);
+
+        // Trigger entrance transition
+        requestAnimationFrame(() => {
+            overlay.classList.add('active');
+        });
+
+        // Auto fade out & remove after 3.8s
+        setTimeout(() => {
+            dismiss();
+        }, 3800);
     }
 
     showFloatingHeart() {
@@ -3311,13 +3590,13 @@ class AppController {
         const userName = data.users[this.currentUser].name;
 
         Swal.fire({
-            title: 'ยืนยันล้างประวัติแชท & ประวัติดูแลแมว 🗑️',
-            text: 'ข้อความแชททั้งหมดและบันทึกประวัติการดูแลความผูกพันของน้องแมวจะถูกลบออกพร้อมกันอย่างถาวร ยืนยันหรือไม่?',
+            title: 'ยืนยันลบแชท & ความผูกพัน 🗑️',
+            html: '<p style="font-size:14px; color:#555;">ข้อความแชททั้งหมด บันทึกประวัติการดูแล มื้ออาหาร และ<b>คะแนนความผูกพันของน้องแมว</b>จะถูกล้างออกพร้อมกันอย่างถาวร</p><p style="font-size:13px; color:#E53935; font-weight:bold;">คุณต้องการลบข้อมูลเหล่านี้ทั้งหมดทันทีหรือไม่?</p>',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#D32F2F',
             cancelButtonColor: '#78909C',
-            confirmButtonText: 'ใช่ ลบทั้งหมดทันที',
+            confirmButtonText: 'ใช่ ลบแชท & ความผูกพันทันที',
             cancelButtonText: 'ยกเลิก'
         }).then((result) => {
             if (result.isConfirmed) {
@@ -3325,7 +3604,10 @@ class AppController {
                 window.soundManager.playDelete();
                 this.renderChatView();
                 this.renderAuditLogs();
-                this.showToast('ล้างประวัติแชทและประวัติดูแลน้องแมวเรียบร้อยแล้ว');
+                if (this.currentView === 'cat') {
+                    this.renderCatView();
+                }
+                this.showToast('ลบข้อความแชท ประวัติดูแล และคะแนนความผูกพันเรียบร้อยแล้ว 🗑️');
             }
         });
     }
@@ -3653,6 +3935,32 @@ class AppController {
             if (msgInput) this.sendChatMessage(msgInput.value);
         });
 
+        // Chat Image Attachment
+        safeOn('chatAttachBtn', 'click', () => {
+            const fileInput = document.getElementById('chatImageInput');
+            if (fileInput) fileInput.click();
+        });
+
+        safeOn('chatImageInput', 'change', async (e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length === 0) return;
+
+            if (!this.pendingChatImages) this.pendingChatImages = [];
+            const remainingSlots = Math.max(0, 6 - this.pendingChatImages.length);
+            const toProcess = files.slice(0, remainingSlots);
+
+            for (const file of toProcess) {
+                if (!file.type.startsWith('image/')) continue;
+                const compressed = await this.compressImageFile(file);
+                if (compressed) {
+                    this.pendingChatImages.push(compressed);
+                }
+            }
+
+            e.target.value = '';
+            this.renderChatImagePreviewTray();
+        });
+
         const stickers = document.querySelectorAll('.quick-sticker');
         stickers.forEach(stk => {
             stk.addEventListener('click', () => {
@@ -3745,7 +4053,6 @@ class AppController {
         safeOn('openCatPlayBtn', 'click', () => this.openCatPlayModal());
         safeOn('startPlaySessionBtn', 'click', () => this.startPlaySession());
         safeOn('stopPlaySessionBtn', 'click', () => this.stopPlaySession());
-
         // 2. Monthly Bond Report
         safeOn('openMonthlyBondReportBtn', 'click', () => this.openMonthlyBondReportModal());
 

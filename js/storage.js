@@ -22,6 +22,7 @@ class AppStorage {
         this.db = null;
         this.isFirebaseConnected = false;
         this.syncListeners = [];
+        this.lastProcessedNudgeTime = Date.now();
 
         this.purgeLegacyData();
         this.initBroadcast();
@@ -38,8 +39,7 @@ class AppStorage {
             'lovetree_couple_data_v3',
             'lovetree_couple_data_v4',
             'lovetree_nav_seen_nether',
-            'lovetree_nav_seen_Pooja',
-            'lovetree_active_user'
+            'lovetree_nav_seen_Pooja'
         ];
         legacyKeys.forEach(k => {
             try { localStorage.removeItem(k); } catch (e) {}
@@ -76,7 +76,8 @@ class AppStorage {
                 version: '5.0.0',
                 createdYear: 2026,
                 currentYear: 2026,
-                lastUpdated: new Date().toISOString(),
+                lastUpdated: '1970-01-01T00:00:00.000Z',
+                isDefaultSeed: true,
                 lastSundayPurge: ''
             },
             users: {
@@ -283,7 +284,9 @@ class AppStorage {
     }
 
     saveLocalData(data) {
+        if (!data.meta) data.meta = {};
         data.meta.lastUpdated = new Date().toISOString();
+        data.meta.isDefaultSeed = false;
         if (data.cat && !data.cat.lastStatsDecayAt) {
             data.cat.lastStatsDecayAt = Date.now();
         }
@@ -586,20 +589,32 @@ class AppStorage {
         }
     }
 
-    // Clear Chat & Care History simultaneously (Requirement 10)
+    // Clear Chat, Care History & Bonding Scores simultaneously (Requirement 7)
     clearChatAndCareHistory(userId, userName) {
         const data = this.getLocalData();
         const chatCount = data.chatMessages ? data.chatMessages.length : 0;
         const careCount = data.activityLogs ? data.activityLogs.length : 0;
 
         data.chatMessages = [];
+        data.mealHistory = [];
+        data.dailyCare = {};
+
+        // Reset cat bonding scores & play time
+        if (data.cat) {
+            data.cat.bondingScores = {
+                nether: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0, vaccine: 0, grooming: 0, play: 0, total: 0 },
+                Pooja: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0, vaccine: 0, grooming: 0, play: 0, total: 0 }
+            };
+            data.cat.playTime = { nether: 0, Pooja: 0 };
+        }
+
         data.activityLogs = [
             {
                 id: 'log_' + Date.now(),
                 userId: userId,
                 userName: userName || 'ผู้ใช้',
-                actionTitle: 'ล้างแชทและประวัติการดูแล 🗑️',
-                detail: `ล้างข้อความแชท (${chatCount} ข้อความ) และประวัติการดูแล (${careCount} รายการ) เรียบร้อยแล้ว`,
+                actionTitle: 'ล้างแชท ประวัติการดูแล และความผูกพัน 🗑️',
+                detail: `ล้างข้อความแชท (${chatCount} ข้อความ), ประวัติมื้ออาหาร, บันทึกการดูแล (${careCount} รายการ) และรีเซ็ตคะแนนความผูกพันเรียบร้อยแล้ว`,
                 timestamp: new Date().toISOString()
             }
         ];
@@ -608,20 +623,37 @@ class AppStorage {
         return { chatCount, careCount };
     }
 
-    // Send Nudge Broadcast
+    // Send Nudge Broadcast with instant cross-device cloud sync
     sendNudgeBroadcast(payload) {
+        const enrichedPayload = {
+            ...payload,
+            timestamp: Date.now()
+        };
+
         if (this.broadcastChannel) {
             this.broadcastChannel.postMessage({
                 type: 'NUDGE_SIGNAL',
-                payload: payload
+                payload: enrichedPayload
             });
         }
+
+        // Store lastNudge on local document
+        const data = this.getLocalData();
+        data.lastNudge = enrichedPayload;
+        this.saveLocalData(data);
+
+        // Immediate Firestore sync to push real-time notification to partner device
         if (this.isFirebaseConnected && this.db) {
             try {
+                this.db.collection('couples').doc('active_couple_v5').set({
+                    lastNudge: enrichedPayload
+                }, { merge: true }).catch(e => console.warn('Firebase nudge sync error:', e));
+
+                // Also archive in nudges collection
                 this.db.collection('couples').doc('active_couple_v5').collection('nudges').add({
-                    ...payload,
+                    ...enrichedPayload,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                }).catch(e => console.warn('Nudge subcollection error:', e));
             } catch (e) {
                 console.warn('Firebase nudge sync error:', e);
             }
@@ -707,8 +739,23 @@ class AppStorage {
                     if (doc.exists) {
                         const remoteData = doc.data();
                         const { data: cleanRemote } = this.sanitizeData(remoteData);
+
+                        // Real-time cross-device Miss You signal trigger
+                        if (cleanRemote.lastNudge && cleanRemote.lastNudge.timestamp) {
+                            if (!this.lastProcessedNudgeTime || cleanRemote.lastNudge.timestamp > this.lastProcessedNudgeTime) {
+                                this.lastProcessedNudgeTime = cleanRemote.lastNudge.timestamp;
+                                const ageMs = Date.now() - cleanRemote.lastNudge.timestamp;
+                                if (ageMs < 30000 && window.onPartnerNudgeReceived) {
+                                    window.onPartnerNudgeReceived(cleanRemote.lastNudge);
+                                }
+                            }
+                        }
+
                         const local = this.getLocalData();
-                        if (cleanRemote.meta && (!local.meta || cleanRemote.meta.lastUpdated > local.meta.lastUpdated)) {
+                        const isLocalSeed = !local.meta || local.meta.isDefaultSeed === true || local.meta.lastUpdated === '1970-01-01T00:00:00.000Z' || !local.meta.lastUpdated;
+
+                        if (cleanRemote.meta && (isLocalSeed || cleanRemote.meta.lastUpdated >= local.meta.lastUpdated)) {
+                            cleanRemote.meta.isDefaultSeed = false;
                             localStorage.setItem(this.storageKey, JSON.stringify(cleanRemote));
                             this.notifyListeners(cleanRemote);
                         }

@@ -648,10 +648,14 @@
             <div style="text-align: center; margin-bottom: 16px;">
                 <div style="font-size: 48px; margin-bottom: 8px;">🐱</div>
                 <h4 style="font-size: 16px; font-weight: 800; color: var(--accent-coral);" id="reportCatName">น้องวิเชียรมาศของเรา</h4>
-                <p style="font-size: 13px; color: var(--text-secondary);">อรุณสวัสดิ์! น้องแมวได้รับการดูแลอย่างอบอุ่นจากความรักของคุณทั้งสอง</p>
+                <p style="font-size: 13px; color: var(--text-secondary);" id="reportGreetingSubtext">อรุณสวัสดิ์! น้องแมวได้รับการดูแลอย่างอบอุ่นจากความรักของคุณทั้งสอง</p>
             </div>
 
             <div style="background: var(--bg-subtle); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px; border: 1px solid var(--border-light);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
+                    <span style="font-weight: 700;">วันที่เลี้ยงดูสะสม:</span>
+                    <span id="reportGrowthDayText" style="color: #1976D2; font-weight: 800;">วันที่ 1 / 365 วันแห่งความผูกพัน</span>
+                </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
                     <span style="font-weight: 700;">การเติบโตเมื่อวาน:</span>
                     <span id="reportYesterdayGrowth" style="color: var(--text-muted);">5%</span>
@@ -666,7 +670,7 @@
                 </div>
             </div>
 
-            <button class="primary-btn" data-close="modalMorningReport">
+            <button class="primary-btn" id="confirmMorningReportBtn" data-close="modalMorningReport">
                 รับทราบและเริ่มวันใหม่ด้วยกัน!
             </button>
         </div>
@@ -914,6 +918,25 @@
             </div>
 
             <button class="primary-btn" id="saveFirebaseConfigBtn" style="margin-bottom: 14px;">บันทึก & เชื่อมต่อ Firestore</button>
+
+            <!-- Web Browser Real-Time Notifications Section -->
+            <div style="background: linear-gradient(135deg, #E0F2FE, #E0E7FF); border-radius: var(--radius-md); padding: 12px; margin-bottom: 14px; border: 1px solid #BAE6FD;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="font-weight: 800; color: #0369A1; font-size: 13px;">🔔 การแจ้งเตือนเบราว์เซอร์ (ข้ามอุปกรณ์)</span>
+                    <span id="browserNotifBadge" style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #E0F2FE; color: #0284C7; font-weight: 700;">ตรวจสอบ...</span>
+                </div>
+                <p style="font-size: 11.5px; color: #334155; line-height: 1.45; margin: 0 0 10px;">
+                    รับแจ้งเตือนแชท, สัญญาณคิดถึง, ควิซทายใจ, โน้ตคู่, มื้ออาหาร และสถานะน้องแมว (หิว/มีไข้/เล็บยาว) แม้จะเปิดด้วยเบราว์เซอร์ใดก็ตาม
+                </p>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="primary-btn" id="requestNotifPermissionBtn" style="background: #0284C7; padding: 8px 10px; font-size: 12px; flex: 1;">
+                        🔔 เปิดสิทธิ์แจ้งเตือน
+                    </button>
+                    <button type="button" class="secondary-btn" id="testBrowserNotifBtn" style="padding: 8px 10px; font-size: 12px; flex: 1; border-color: #BAE6FD; background: #fff;">
+                        🧪 ทดสอบแจ้งเตือน
+                    </button>
+                </div>
+            </div>
 
             <!-- Dual-Confirmation System Reset Section -->
             <div class="system-reset-box" style="border: 1px solid #FFCDD2; background: #FFF5F5; border-radius: var(--radius-md); padding: 13px; margin-bottom: 14px;">

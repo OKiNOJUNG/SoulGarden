@@ -408,8 +408,8 @@ const DEFAULT_QUESTS = [
     },
     {
         id: 'q_quiz',
-        title: 'ตอบคำถามทายใจประจำวัน',
-        detail: 'ร่วมตอบควิซประจำวันวัดความรู้ใจกับคนรัก',
+        title: 'ตั้งคำถามทายใจประจำวัน',
+        detail: 'สร้างคำถามควิซประจำวันเพื่อให้คนรักได้ร่วมตอบทายใจ',
         reward: 30,
         category: 'quiz',
         targetView: 'view-quiz'

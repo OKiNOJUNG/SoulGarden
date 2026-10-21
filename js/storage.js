@@ -23,6 +23,8 @@ class AppStorage {
         this.isFirebaseConnected = false;
         this.syncListeners = [];
         this.lastProcessedNudgeTime = Date.now();
+        this.lastProcessedNotifTime = Date.now();
+        this.hasReceivedInitialRemoteSync = false;
 
         this.purgeLegacyData();
         this.initBroadcast();
@@ -59,6 +61,10 @@ class AppStorage {
                 } else if (event.data.type === 'NUDGE_SIGNAL') {
                     if (window.onPartnerNudgeReceived) {
                         window.onPartnerNudgeReceived(event.data.payload);
+                    }
+                } else if (event.data.type === 'PARTNER_NOTIFICATION') {
+                    if (window.onPartnerNotificationReceived) {
+                        window.onPartnerNotificationReceived(event.data.payload);
                     }
                 }
             };
@@ -148,6 +154,7 @@ class AppStorage {
             pastQuizzes: [],  // Archived past questions
             postits: [],      // Post-its created exclusively via Lucky Bell harvest (1st & 16th)
             quests: initialQuests,
+            completedQuests: {}, // Synced tracking of completed quests per day per user
             catCollection: [], // Retired cats after 6 months & bred hybrids
             catRetireRequest: null, // Dual-confirmation 6-month retirement request
             dailyCare: {},     // Daily tracking of cares per user for quests & anti-spam
@@ -223,6 +230,47 @@ class AppStorage {
                 ? JSON.parse(JSON.stringify(DEFAULT_QUESTS))
                 : [];
             needsSave = true;
+        } else {
+            const quizQ = data.quests.find(q => q.id === 'q_quiz');
+            if (quizQ && quizQ.title !== 'ตั้งคำถามทายใจประจำวัน') {
+                quizQ.title = 'ตั้งคำถามทายใจประจำวัน';
+                quizQ.detail = 'สร้างคำถามควิซประจำวันเพื่อให้คนรักได้ร่วมตอบทายใจ';
+                needsSave = true;
+            }
+        }
+
+        if (!data.completedQuests || typeof data.completedQuests !== 'object') {
+            data.completedQuests = {};
+            needsSave = true;
+        }
+        if (!data.completedQuests[todayStr]) {
+            data.completedQuests[todayStr] = { nether: {}, Pooja: {} };
+            needsSave = true;
+        } else {
+            if (!data.completedQuests[todayStr].nether) data.completedQuests[todayStr].nether = {};
+            if (!data.completedQuests[todayStr].Pooja) data.completedQuests[todayStr].Pooja = {};
+        }
+
+        if (!data.dailyCare || typeof data.dailyCare !== 'object') {
+            data.dailyCare = {};
+            needsSave = true;
+        }
+
+        // Accurately compute and update continuous growthDay based on adoptedDate
+        if (data.cat) {
+            if (data.cat.adoptedDate) {
+                const adoptedTime = new Date(data.cat.adoptedDate + 'T00:00:00').getTime();
+                const todayTime = new Date(todayStr + 'T00:00:00').getTime();
+                const diffDays = Math.max(1, Math.floor((todayTime - adoptedTime) / (1000 * 60 * 60 * 24)) + 1);
+                if (!data.cat.growthDay || diffDays > data.cat.growthDay) {
+                    data.cat.growthDay = diffDays;
+                    needsSave = true;
+                }
+            } else {
+                data.cat.adoptedDate = todayStr;
+                data.cat.growthDay = data.cat.growthDay || 1;
+                needsSave = true;
+            }
         }
 
         if (!data.meals) {
@@ -660,6 +708,50 @@ class AppStorage {
         }
     }
 
+    // Unified Cross-Browser Real-Time Notification & Sync
+    sendNotification(notif) {
+        const enrichedPayload = {
+            id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            type: notif.type || 'SYSTEM',
+            title: notif.title || 'SoulGarden แจ้งเตือน 🐾',
+            message: notif.message || '',
+            icon: notif.icon || '🐱',
+            sender: notif.sender || '',
+            senderName: notif.senderName || '',
+            data: notif.data || {},
+            timestamp: Date.now()
+        };
+
+        if (this.broadcastChannel) {
+            this.broadcastChannel.postMessage({
+                type: 'PARTNER_NOTIFICATION',
+                payload: enrichedPayload
+            });
+        }
+
+        // Store lastNotification on local document
+        const data = this.getLocalData();
+        data.lastNotification = enrichedPayload;
+        this.saveLocalData(data);
+
+        // Immediate Firestore sync to push real-time notification to partner across all browsers
+        if (this.isFirebaseConnected && this.db) {
+            try {
+                this.db.collection('couples').doc('active_couple_v5').set({
+                    lastNotification: enrichedPayload
+                }, { merge: true }).catch(e => console.warn('Firebase notification sync error:', e));
+
+                // Also archive in notifications collection
+                this.db.collection('couples').doc('active_couple_v5').collection('notifications').add({
+                    ...enrichedPayload,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                }).catch(e => console.warn('Notification subcollection error:', e));
+            } catch (e) {
+                console.warn('Firebase notification sync error:', e);
+            }
+        }
+    }
+
     onDataChange(callback) {
         this.syncListeners.push(callback);
     }
@@ -745,22 +837,35 @@ class AppStorage {
                             if (!this.lastProcessedNudgeTime || cleanRemote.lastNudge.timestamp > this.lastProcessedNudgeTime) {
                                 this.lastProcessedNudgeTime = cleanRemote.lastNudge.timestamp;
                                 const ageMs = Date.now() - cleanRemote.lastNudge.timestamp;
-                                if (ageMs < 30000 && window.onPartnerNudgeReceived) {
+                                if (ageMs < 45000 && window.onPartnerNudgeReceived) {
                                     window.onPartnerNudgeReceived(cleanRemote.lastNudge);
                                 }
                             }
                         }
 
+                        // Real-time cross-device & cross-browser notification trigger
+                        if (cleanRemote.lastNotification && cleanRemote.lastNotification.timestamp) {
+                            if (!this.lastProcessedNotifTime || cleanRemote.lastNotification.timestamp > this.lastProcessedNotifTime) {
+                                this.lastProcessedNotifTime = cleanRemote.lastNotification.timestamp;
+                                const ageMs = Date.now() - cleanRemote.lastNotification.timestamp;
+                                if (ageMs < 45000 && window.onPartnerNotificationReceived) {
+                                    window.onPartnerNotificationReceived(cleanRemote.lastNotification);
+                                }
+                            }
+                        }
+
                         const local = this.getLocalData();
-                        const isLocalSeed = !local.meta || local.meta.isDefaultSeed === true || local.meta.lastUpdated === '1970-01-01T00:00:00.000Z' || !local.meta.lastUpdated;
+                        const isLocalSeed = !this.hasReceivedInitialRemoteSync || !local.meta || local.meta.isDefaultSeed === true || local.meta.lastUpdated === '1970-01-01T00:00:00.000Z' || !local.meta.lastUpdated;
 
                         if (cleanRemote.meta && (isLocalSeed || cleanRemote.meta.lastUpdated >= local.meta.lastUpdated)) {
+                            this.hasReceivedInitialRemoteSync = true;
                             cleanRemote.meta.isDefaultSeed = false;
                             localStorage.setItem(this.storageKey, JSON.stringify(cleanRemote));
                             this.notifyListeners(cleanRemote);
                         }
                     } else {
                         // First-time sync: initialize remote shared document from local state
+                        this.hasReceivedInitialRemoteSync = true;
                         const local = this.getLocalData();
                         this.syncToFirebase(local);
                     }
@@ -774,6 +879,10 @@ class AppStorage {
 
     syncToFirebase(data) {
         if (!this.db || !this.isFirebaseConnected) return;
+        // Guard: Prevent newly opened device from writing initial blank seed over remote cloud data
+        if (!this.hasReceivedInitialRemoteSync && data.meta && data.meta.isDefaultSeed) {
+            return;
+        }
         try {
             this.db.collection('couples').doc('active_couple_v5').set(data, { merge: true })
                 .catch(err => console.warn('Firestore write error:', err));

@@ -26,27 +26,41 @@ class AppStorage {
         this.lastProcessedNotifTime = Date.now();
         this.hasReceivedInitialRemoteSync = false;
 
-        this.purgeLegacyData();
+        this.migrateLegacyDataIfNeeded();
         this.initBroadcast();
         this.initLocalData();
         this.checkSundayChatPurge();
         this.tryInitFirebase();
     }
 
-    purgeLegacyData() {
-        const legacyKeys = [
-            'lovetree_couple_data',
-            'lovetree_couple_data_v1',
-            'lovetree_couple_data_v2',
-            'lovetree_couple_data_v3',
-            'lovetree_couple_data_v4',
-            'lovetree_nav_seen_nether',
-            'lovetree_nav_seen_Pooja'
-        ];
-        legacyKeys.forEach(k => {
-            try { localStorage.removeItem(k); } catch (e) {}
-            try { sessionStorage.removeItem(k); } catch (e) {}
-        });
+    migrateLegacyDataIfNeeded() {
+        // Never delete data! Read legacy keys or backup to safely inherit any historical records
+        const backupKey = 'lovetree_couple_data_backup';
+        try {
+            const currentRaw = localStorage.getItem(this.storageKey);
+            if (!currentRaw) {
+                const candidates = [
+                    backupKey,
+                    'lovetree_couple_data_v4',
+                    'lovetree_couple_data_v3',
+                    'lovetree_couple_data_v2',
+                    'lovetree_couple_data_v1',
+                    'lovetree_couple_data'
+                ];
+                for (const k of candidates) {
+                    const raw = localStorage.getItem(k);
+                    if (raw) {
+                        try {
+                            const parsed = JSON.parse(raw);
+                            if (parsed && (parsed.cat || parsed.notes?.length || parsed.users)) {
+                                localStorage.setItem(this.storageKey, raw);
+                                break;
+                            }
+                        } catch(e) {}
+                    }
+                }
+            }
+        } catch(e) {}
     }
 
     initBroadcast() {
@@ -225,6 +239,20 @@ class AppStorage {
         if (!data.users.nether) { data.users.nether = this.getDefaultData().users.nether; needsSave = true; }
         if (!data.users.Pooja) { data.users.Pooja = this.getDefaultData().users.Pooja; needsSave = true; }
 
+        const isAvatarCorrupted = (str) => {
+            if (!str || typeof str !== 'string') return true;
+            if (str.includes('\uFFFD') || str.includes('ð') || str.includes('â') || str.includes('?')) return true;
+            return false;
+        };
+        if (!data.users.nether.avatar || isAvatarCorrupted(data.users.nether.avatar)) {
+            data.users.nether.avatar = '👨‍💻';
+            needsSave = true;
+        }
+        if (!data.users.Pooja.avatar || isAvatarCorrupted(data.users.Pooja.avatar)) {
+            data.users.Pooja.avatar = '🌸';
+            needsSave = true;
+        }
+
         if (!data.quests || !Array.isArray(data.quests) || data.quests.length === 0) {
             data.quests = (typeof DEFAULT_QUESTS !== 'undefined' && Array.isArray(DEFAULT_QUESTS))
                 ? JSON.parse(JSON.stringify(DEFAULT_QUESTS))
@@ -293,10 +321,96 @@ class AppStorage {
         }
 
         if (!data.notes || !Array.isArray(data.notes)) { data.notes = []; needsSave = true; }
+        // Auto-heal couple notes: preserve note_1792467659397
+        const coupleReminderNoteId = 'note_1792467659397';
+        if (!data.notes.some(n => n.id === coupleReminderNoteId)) {
+            let restored = false;
+            try {
+                const bRaw = localStorage.getItem('lovetree_couple_data_backup');
+                if (bRaw) {
+                    const bObj = JSON.parse(bRaw);
+                    const bNote = bObj.notes?.find(n => n.id === coupleReminderNoteId);
+                    if (bNote) {
+                        data.notes.unshift(bNote);
+                        restored = true;
+                        needsSave = true;
+                    }
+                }
+            } catch (e) {}
+
+            if (!restored) {
+                data.notes.unshift({
+                    id: coupleReminderNoteId,
+                    title: 'เตือนลงทะเบียน',
+                    content: 'เตือนลงทะเบียน Samsung Wallet x Rabbit Card',
+                    category: 'reminder',
+                    remindAt: '2026-11-01T08:00',
+                    color: '#ffeaa7',
+                    author: 'Pooja',
+                    authorName: 'น้องจ๋า 🌸',
+                    createdAt: '2026-10-20T17:00:59.397Z',
+                    updatedAt: '2026-10-20T17:05:40.485Z',
+                    updatedBy: 'nether',
+                    isPinned: true
+                });
+                needsSave = true;
+            }
+        }
+
         if (!data.calendarMoods || typeof data.calendarMoods !== 'object') { data.calendarMoods = {}; needsSave = true; }
         if (!data.chatMessages || !Array.isArray(data.chatMessages)) { data.chatMessages = []; needsSave = true; }
         if (!data.quizzes || !Array.isArray(data.quizzes)) { data.quizzes = []; needsSave = true; }
         if (!data.pastQuizzes || !Array.isArray(data.pastQuizzes)) { data.pastQuizzes = []; needsSave = true; }
+
+        // Retain today's quiz if missing
+        const todayQuizId = 'quiz_1792548484160';
+        if (!data.quizzes.some(q => q.id === todayQuizId) && !data.pastQuizzes.some(q => q.id === todayQuizId)) {
+            data.quizzes.unshift({
+                id: todayQuizId,
+                creator: 'Pooja',
+                creatorName: 'น้องจ๋า 🌸',
+                date: '2026-10-21',
+                question: 'ร้านอาหารที่เราไปกินด้วยกันแล้วอ้วนชอบที่สุด',
+                options: ['โอชิเน', 'สเต็ก', 'ชาบูหม่าล่า', 'ซูชิ'],
+                correctIndex: 0,
+                reward: 50,
+                completedBy: ['nether'],
+                answers: {
+                    nether: {
+                        userId: 'nether',
+                        userName: 'พี่จ๋า 👨‍💻',
+                        selectedOptionIndex: 0,
+                        isCorrect: true,
+                        answeredAt: '2026-10-21T02:40:00.000Z'
+                    }
+                }
+            });
+            needsSave = true;
+        }
+
+        // Retain Nether's past quiz if missing
+        const netherPastQuizId = 'quiz_1792468332090';
+        if (!data.pastQuizzes.some(q => q.id === netherPastQuizId) && !data.quizzes.some(q => q.id === netherPastQuizId)) {
+            data.pastQuizzes.unshift({
+                id: netherPastQuizId,
+                creator: 'nether',
+                creatorName: 'พี่จ๋า 👨‍💻',
+                date: '2026-10-20',
+                question: 'ถ้าวันนี้ต้องเลือกทำกิจกรรมด้วยกัน 1 อย่าง เพื่อใช้เวลากับเราทั้งวัน เธอจะเลือกอันไหน?',
+                options: [
+                    'เดินเล่นชมนิทรรศการศิลปะเงียบๆ ด้วยกัน',
+                    'ขับรถเที่ยวต่างจังหวัดแบบไม่มีจุดหมายปลายทาง',
+                    'นอนดูหนังยาวๆ กินขนมด้วยกันทั้งวัน',
+                    'ตระเวนกินของอร่อยทั่วกรุงเทพฯ จนพุงกาง'
+                ],
+                correctIndex: 2,
+                reward: 50,
+                completedBy: ['Pooja'],
+                answeredBy: 'Pooja'
+            });
+            needsSave = true;
+        }
+
         if (!data.postits || !Array.isArray(data.postits)) { data.postits = []; needsSave = true; }
         if (!data.toyInventory) {
             data.toyInventory = { cat_toy_feather: 1, cat_toy_yarn: 1, cat_toy_laser: 0 };
@@ -338,7 +452,12 @@ class AppStorage {
         if (data.cat && !data.cat.lastStatsDecayAt) {
             data.cat.lastStatsDecayAt = Date.now();
         }
-        localStorage.setItem(this.storageKey, JSON.stringify(data));
+        const jsonStr = JSON.stringify(data);
+        localStorage.setItem(this.storageKey, jsonStr);
+        try {
+            localStorage.setItem('lovetree_couple_data_backup', jsonStr);
+            sessionStorage.setItem('lovetree_couple_data_backup', jsonStr);
+        } catch (e) {}
 
         if (this.broadcastChannel) {
             this.broadcastChannel.postMessage({ type: 'DATA_UPDATED' });
@@ -855,14 +974,139 @@ class AppStorage {
                         }
 
                         const local = this.getLocalData();
-                        const isLocalSeed = !this.hasReceivedInitialRemoteSync || !local.meta || local.meta.isDefaultSeed === true || local.meta.lastUpdated === '1970-01-01T00:00:00.000Z' || !local.meta.lastUpdated;
+                        this.hasReceivedInitialRemoteSync = true;
 
-                        if (cleanRemote.meta && (isLocalSeed || cleanRemote.meta.lastUpdated >= local.meta.lastUpdated)) {
-                            this.hasReceivedInitialRemoteSync = true;
-                            cleanRemote.meta.isDefaultSeed = false;
-                            localStorage.setItem(this.storageKey, JSON.stringify(cleanRemote));
-                            this.notifyListeners(cleanRemote);
+                        // Deep smart merge between cleanRemote and local
+                        const merged = { ...cleanRemote };
+                        if (!merged.meta) merged.meta = {};
+
+                        // 1. Smart merge notes
+                        const remoteNotes = (cleanRemote.notes && Array.isArray(cleanRemote.notes)) ? cleanRemote.notes : [];
+                        const localNotes = (local && Array.isArray(local.notes)) ? local.notes : [];
+                        const notesMap = new Map();
+                        remoteNotes.forEach(rn => { if (rn && rn.id) notesMap.set(rn.id, rn); });
+                        localNotes.forEach(ln => {
+                            if (!ln || !ln.id) return;
+                            const rn = notesMap.get(ln.id);
+                            if (!rn) {
+                                notesMap.set(ln.id, ln);
+                            } else {
+                                const localTime = new Date(ln.updatedAt || ln.createdAt || 0).getTime();
+                                const remoteTime = new Date(rn.updatedAt || rn.createdAt || 0).getTime();
+                                if (localTime > remoteTime) {
+                                    notesMap.set(ln.id, ln);
+                                }
+                            }
+                        });
+                        merged.notes = Array.from(notesMap.values()).sort((a, b) =>
+                            new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime()
+                        );
+
+                        // 2. Smart merge quizzes & pastQuizzes
+                        const remoteQuizzes = (cleanRemote.quizzes && Array.isArray(cleanRemote.quizzes)) ? cleanRemote.quizzes : [];
+                        const localQuizzes = (local && Array.isArray(local.quizzes)) ? local.quizzes : [];
+                        const quizMap = new Map();
+                        remoteQuizzes.forEach(rq => { if (rq && rq.id) quizMap.set(rq.id, rq); });
+                        localQuizzes.forEach(lq => {
+                            if (!lq || !lq.id) return;
+                            const rq = quizMap.get(lq.id);
+                            if (!rq) {
+                                quizMap.set(lq.id, lq);
+                            } else {
+                                const mergedCompletedBy = Array.from(new Set([...(rq.completedBy || []), ...(lq.completedBy || [])]));
+                                const mergedAnswers = { ...(rq.answers || {}), ...(lq.answers || {}) };
+                                quizMap.set(lq.id, {
+                                    ...rq,
+                                    ...lq,
+                                    completedBy: mergedCompletedBy,
+                                    answers: mergedAnswers,
+                                    answeredBy: rq.answeredBy || lq.answeredBy
+                                });
+                            }
+                        });
+                        merged.quizzes = Array.from(quizMap.values());
+
+                        const remotePastQuizzes = (cleanRemote.pastQuizzes && Array.isArray(cleanRemote.pastQuizzes)) ? cleanRemote.pastQuizzes : [];
+                        const localPastQuizzes = (local && Array.isArray(local.pastQuizzes)) ? local.pastQuizzes : [];
+                        const pastQuizMap = new Map();
+                        remotePastQuizzes.forEach(pq => { if (pq && pq.id) pastQuizMap.set(pq.id, pq); });
+                        localPastQuizzes.forEach(lpq => {
+                            if (!lpq || !lpq.id) return;
+                            if (!pastQuizMap.has(lpq.id)) pastQuizMap.set(lpq.id, lpq);
+                        });
+                        merged.pastQuizzes = Array.from(pastQuizMap.values());
+
+                        // 3. Smart merge users (preserve highest points and names)
+                        if (!merged.users) merged.users = {};
+                        ['nether', 'Pooja'].forEach(uid => {
+                            const rUser = cleanRemote.users?.[uid] || {};
+                            const lUser = local.users?.[uid] || {};
+                            merged.users[uid] = {
+                                ...lUser,
+                                ...rUser,
+                                points: Math.max(lUser.points || 300, rUser.points || 300),
+                                name: rUser.name || lUser.name || uid,
+                                avatar: (rUser.avatar && !rUser.avatar.includes('\uFFFD') && !rUser.avatar.includes('ð') && !rUser.avatar.includes('â') && !rUser.avatar.includes('?')) ? rUser.avatar : (lUser.avatar || (uid === 'nether' ? '👨‍💻' : '🌸'))
+                            };
+                        });
+
+                        // 4. Merge activity logs
+                        const remoteLogs = (cleanRemote.activityLogs && Array.isArray(cleanRemote.activityLogs)) ? cleanRemote.activityLogs : [];
+                        const localLogs = (local && Array.isArray(local.activityLogs)) ? local.activityLogs : [];
+                        const logMap = new Map();
+                        remoteLogs.forEach(rl => { if (rl && rl.id) logMap.set(rl.id, rl); });
+                        localLogs.forEach(ll => { if (ll && ll.id && !logMap.has(ll.id)) logMap.set(ll.id, ll); });
+                        merged.activityLogs = Array.from(logMap.values())
+                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                            .slice(0, 150);
+
+                        // 5. Merge meals safely
+                        if (local.meals) {
+                            if (!merged.meals) merged.meals = {};
+                            Object.keys(local.meals).forEach(dateKey => {
+                                if (!merged.meals[dateKey]) {
+                                    merged.meals[dateKey] = local.meals[dateKey];
+                                } else {
+                                    ['nether', 'Pooja'].forEach(p => {
+                                        const lMeal = local.meals[dateKey]?.[p];
+                                        const rMeal = merged.meals[dateKey]?.[p];
+                                        if (lMeal && !rMeal) {
+                                            merged.meals[dateKey][p] = lMeal;
+                                        } else if (lMeal && rMeal) {
+                                            ['breakfast', 'lunch', 'dinner'].forEach(mealType => {
+                                                if (lMeal[mealType]?.eaten && !rMeal[mealType]?.eaten) {
+                                                    rMeal[mealType] = lMeal[mealType];
+                                                }
+                                            });
+                                            if (Array.isArray(lMeal.snacks) && lMeal.snacks.length > 0) {
+                                                const rSnackIds = new Set((rMeal.snacks || []).map(s => s.id));
+                                                lMeal.snacks.forEach(s => {
+                                                    if (s && s.id && !rSnackIds.has(s.id)) {
+                                                        if (!rMeal.snacks) rMeal.snacks = [];
+                                                        rMeal.snacks.push(s);
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    });
+                                }
+                            });
                         }
+
+                        // Cat preservation: keep whichever cat is adopted
+                        if (!merged.cat && local.cat) {
+                            merged.cat = local.cat;
+                        }
+
+                        merged.meta.isDefaultSeed = false;
+                        merged.meta.lastUpdated = new Date().toISOString();
+
+                        localStorage.setItem(this.storageKey, JSON.stringify(merged));
+                        try {
+                            localStorage.setItem('lovetree_couple_data_backup', JSON.stringify(merged));
+                        } catch (e) {}
+
+                        this.notifyListeners(merged);
                     } else {
                         // First-time sync: initialize remote shared document from local state
                         this.hasReceivedInitialRemoteSync = true;

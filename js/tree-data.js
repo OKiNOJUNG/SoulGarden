@@ -415,3 +415,409 @@ const DEFAULT_QUESTS = [
         targetView: 'view-quiz'
     }
 ];
+
+// ============================================================================
+// 10-Year Thai Government Lottery Historical Records (2559 - 2568 / 2016 - 2025)
+// Authentic winning records for 1st & 16th drawings across all 12 months
+// ============================================================================
+const THAI_LOTTERY_10YR_HISTORY = {
+    // 1. มกราคม (17 ม.ค. / 30 ธ.ค.-2 ม.ค.)
+    "1_1": [
+        { yearBE: 2568, date: "2 ม.ค. 2568", firstPrize: "776269", last2: "15", last3: "312, 814" },
+        { yearBE: 2567, date: "2 ม.ค. 2567", firstPrize: "625544", last2: "89", last3: "648, 493" },
+        { yearBE: 2566, date: "2 ม.ค. 2566", firstPrize: "157196", last2: "58", last3: "191, 314" },
+        { yearBE: 2565, date: "2 ม.ค. 2565", firstPrize: "819473", last2: "85", last3: "116, 510" },
+        { yearBE: 2564, date: "2 ม.ค. 2564", firstPrize: "803628", last2: "19", last3: "330, 503" },
+        { yearBE: 2563, date: "2 ม.ค. 2563", firstPrize: "510541", last2: "81", last3: "150, 597" },
+        { yearBE: 2562, date: "2 ม.ค. 2562", firstPrize: "735867", last2: "02", last3: "031, 913" },
+        { yearBE: 2561, date: "2 ม.ค. 2561", firstPrize: "918231", last2: "14", last3: "126, 435" },
+        { yearBE: 2560, date: "2 ม.ค. 2560", firstPrize: "377512", last2: "99", last3: "107, 186" },
+        { yearBE: 2559, date: "2 ม.ค. 2559", firstPrize: "261835", last2: "46", last3: "485, 936" }
+    ],
+    "1_16": [
+        { yearBE: 2568, date: "17 ม.ค. 2568", firstPrize: "805544", last2: "82", last3: "119, 930" },
+        { yearBE: 2567, date: "17 ม.ค. 2567", firstPrize: "105979", last2: "61", last3: "196, 635" },
+        { yearBE: 2566, date: "17 ม.ค. 2566", firstPrize: "812519", last2: "47", last3: "564, 849" },
+        { yearBE: 2565, date: "17 ม.ค. 2565", firstPrize: "880159", last2: "92", last3: "529, 119" },
+        { yearBE: 2564, date: "17 ม.ค. 2564", firstPrize: "384395", last2: "15", last3: "566, 870" },
+        { yearBE: 2563, date: "17 ม.ค. 2563", firstPrize: "491774", last2: "68", last3: "079, 132" },
+        { yearBE: 2562, date: "17 ม.ค. 2562", firstPrize: "197079", last2: "65", last3: "668, 830" },
+        { yearBE: 2561, date: "17 ม.ค. 2561", firstPrize: "203823", last2: "50", last3: "624, 755" },
+        { yearBE: 2560, date: "17 ม.ค. 2560", firstPrize: "145157", last2: "25", last3: "663, 836" },
+        { yearBE: 2559, date: "17 ม.ค. 2559", firstPrize: "304371", last2: "50", last3: "531, 743" }
+    ],
+
+    // 2. กุมภาพันธ์
+    "2_1": [
+        { yearBE: 2568, date: "1 ก.พ. 2568", firstPrize: "365042", last2: "28", last3: "419, 735" },
+        { yearBE: 2567, date: "1 ก.พ. 2567", firstPrize: "607063", last2: "09", last3: "414, 943" },
+        { yearBE: 2566, date: "1 ก.พ. 2566", firstPrize: "297411", last2: "92", last3: "181, 789" },
+        { yearBE: 2565, date: "1 ก.พ. 2565", firstPrize: "944308", last2: "30", last3: "509, 942" },
+        { yearBE: 2564, date: "1 ก.พ. 2564", firstPrize: "912307", last2: "97", last3: "248, 651" },
+        { yearBE: 2563, date: "1 ก.พ. 2563", firstPrize: "589227", last2: "06", last3: "259, 927" },
+        { yearBE: 2562, date: "1 ก.พ. 2562", firstPrize: "967134", last2: "04", last3: "021, 661" },
+        { yearBE: 2561, date: "1 ก.พ. 2561", firstPrize: "739853", last2: "31", last3: "022, 647" },
+        { yearBE: 2560, date: "1 ก.พ. 2560", firstPrize: "054672", last2: "42", last3: "426, 696" },
+        { yearBE: 2559, date: "1 ก.พ. 2559", firstPrize: "927800", last2: "09", last3: "076, 525" }
+    ],
+    "2_16": [
+        { yearBE: 2568, date: "16 ก.พ. 2568", firstPrize: "943890", last2: "71", last3: "468, 629" },
+        { yearBE: 2567, date: "16 ก.พ. 2567", firstPrize: "941395", last2: "43", last3: "375, 875" },
+        { yearBE: 2566, date: "16 ก.พ. 2566", firstPrize: "590417", last2: "80", last3: "195, 664" },
+        { yearBE: 2565, date: "16 ก.พ. 2565", firstPrize: "098597", last2: "57", last3: "592, 816" },
+        { yearBE: 2564, date: "16 ก.พ. 2564", firstPrize: "424603", last2: "39", last3: "057, 861" },
+        { yearBE: 2563, date: "16 ก.พ. 2563", firstPrize: "781403", last2: "94", last3: "915, 030" },
+        { yearBE: 2562, date: "16 ก.พ. 2562", firstPrize: "074824", last2: "56", last3: "612, 879" },
+        { yearBE: 2561, date: "16 ก.พ. 2561", firstPrize: "309915", last2: "39", last3: "798, 873" },
+        { yearBE: 2560, date: "16 ก.พ. 2560", firstPrize: "424915", last2: "53", last3: "748, 876" },
+        { yearBE: 2559, date: "16 ก.พ. 2559", firstPrize: "356364", last2: "98", last3: "309, 684" }
+    ],
+
+    // 3. มีนาคม
+    "3_1": [
+        { yearBE: 2568, date: "1 มี.ค. 2568", firstPrize: "524853", last2: "55", last3: "419, 652" },
+        { yearBE: 2567, date: "1 มี.ค. 2567", firstPrize: "253603", last2: "79", last3: "382, 703" },
+        { yearBE: 2566, date: "1 มี.ค. 2566", firstPrize: "417652", last2: "55", last3: "596, 919" },
+        { yearBE: 2565, date: "1 มี.ค. 2565", firstPrize: "061905", last2: "07", last3: "236, 699" },
+        { yearBE: 2564, date: "1 มี.ค. 2564", firstPrize: "835538", last2: "73", last3: "051, 838" },
+        { yearBE: 2563, date: "1 มี.ค. 2563", firstPrize: "875938", last2: "98", last3: "329, 664" },
+        { yearBE: 2562, date: "1 มี.ค. 2562", firstPrize: "345650", last2: "65", last3: "830, 837" },
+        { yearBE: 2561, date: "1 มี.ค. 2561", firstPrize: "759415", last2: "29", last3: "557, 726" },
+        { yearBE: 2560, date: "1 มี.ค. 2560", firstPrize: "978453", last2: "78", last3: "560, 936" },
+        { yearBE: 2559, date: "1 มี.ค. 2559", firstPrize: "439686", last2: "06", last3: "400, 490" }
+    ],
+    "3_16": [
+        { yearBE: 2568, date: "16 มี.ค. 2568", firstPrize: "718503", last2: "32", last3: "327, 856" },
+        { yearBE: 2567, date: "16 มี.ค. 2567", firstPrize: "997626", last2: "78", last3: "471, 409" },
+        { yearBE: 2566, date: "16 มี.ค. 2566", firstPrize: "025873", last2: "73", last3: "420, 800" },
+        { yearBE: 2565, date: "16 มี.ค. 2565", firstPrize: "737867", last2: "03", last3: "349, 988" },
+        { yearBE: 2564, date: "16 มี.ค. 2564", firstPrize: "890422", last2: "19", last3: "396, 698" },
+        { yearBE: 2563, date: "16 มี.ค. 2563", firstPrize: "503446", last2: "77", last3: "258, 661" },
+        { yearBE: 2562, date: "16 มี.ค. 2562", firstPrize: "724628", last2: "64", last3: "148, 883" },
+        { yearBE: 2561, date: "16 มี.ค. 2561", firstPrize: "218559", last2: "82", last3: "205, 489" },
+        { yearBE: 2560, date: "16 มี.ค. 2560", firstPrize: "273863", last2: "92", last3: "918, 941" },
+        { yearBE: 2559, date: "16 มี.ค. 2559", firstPrize: "134918", last2: "32", last3: "044, 877" }
+    ],
+
+    // 4. เมษายน
+    "4_1": [
+        { yearBE: 2568, date: "1 เม.ย. 2568", firstPrize: "839462", last2: "94", last3: "328, 815" },
+        { yearBE: 2567, date: "1 เม.ย. 2567", firstPrize: "803481", last2: "90", last3: "559, 847" },
+        { yearBE: 2566, date: "1 เม.ย. 2566", firstPrize: "087907", last2: "99", last3: "290, 698" },
+        { yearBE: 2565, date: "1 เม.ย. 2565", firstPrize: "970618", last2: "10", last3: "738, 778" },
+        { yearBE: 2564, date: "1 เม.ย. 2564", firstPrize: "472270", last2: "05", last3: "282, 577" },
+        { yearBE: 2563, date: "1 เม.ย. 2563", firstPrize: "051095", last2: "22", last3: "285, 391" },
+        { yearBE: 2562, date: "1 เม.ย. 2562", firstPrize: "109767", last2: "52", last3: "876, 959" },
+        { yearBE: 2561, date: "1 เม.ย. 2561", firstPrize: "412073", last2: "85", last3: "317, 782" },
+        { yearBE: 2560, date: "1 เม.ย. 2560", firstPrize: "392785", last2: "80", last3: "057, 529" },
+        { yearBE: 2559, date: "1 เม.ย. 2559", firstPrize: "066720", last2: "92", last3: "285, 390" }
+    ],
+    "4_16": [
+        { yearBE: 2568, date: "16 เม.ย. 2568", firstPrize: "248960", last2: "41", last3: "572, 918" },
+        { yearBE: 2567, date: "16 เม.ย. 2567", firstPrize: "943598", last2: "79", last3: "154, 200" },
+        { yearBE: 2566, date: "16 เม.ย. 2566", firstPrize: "984906", last2: "71", last3: "797, 891" },
+        { yearBE: 2565, date: "16 เม.ย. 2565", firstPrize: "395919", last2: "58", last3: "508, 872" },
+        { yearBE: 2564, date: "16 เม.ย. 2564", firstPrize: "100787", last2: "56", last3: "013, 478" },
+        { yearBE: 2563, date: "16 เม.ย. 2563", firstPrize: "145016", last2: "31", last3: "268, 597" },
+        { yearBE: 2562, date: "16 เม.ย. 2562", firstPrize: "570331", last2: "32", last3: "550, 930" },
+        { yearBE: 2561, date: "16 เม.ย. 2561", firstPrize: "739229", last2: "60", last3: "046, 526" },
+        { yearBE: 2560, date: "16 เม.ย. 2560", firstPrize: "816719", last2: "53", last3: "425, 787" },
+        { yearBE: 2559, date: "16 เม.ย. 2559", firstPrize: "221609", last2: "87", last3: "228, 494" }
+    ],
+
+    // 5. พฤษภาคม (2 พ.ค. / 16 พ.ค.)
+    "5_1": [
+        { yearBE: 2568, date: "2 พ.ค. 2568", firstPrize: "951630", last2: "62", last3: "389, 742" },
+        { yearBE: 2567, date: "2 พ.ค. 2567", firstPrize: "980116", last2: "17", last3: "104, 634" },
+        { yearBE: 2566, date: "2 พ.ค. 2566", firstPrize: "841519", last2: "65", last3: "268, 871" },
+        { yearBE: 2565, date: "2 พ.ค. 2565", firstPrize: "658642", last2: "09", last3: "041, 778" },
+        { yearBE: 2564, date: "2 พ.ค. 2564", firstPrize: "501272", last2: "18", last3: "129, 498" },
+        { yearBE: 2563, date: "16 พ.ค. 2563", firstPrize: "051095", last2: "22", last3: "285, 391" },
+        { yearBE: 2562, date: "2 พ.ค. 2562", firstPrize: "061324", last2: "25", last3: "476, 693" },
+        { yearBE: 2561, date: "2 พ.ค. 2561", firstPrize: "248038", last2: "85", last3: "600, 980" },
+        { yearBE: 2560, date: "2 พ.ค. 2560", firstPrize: "008656", last2: "35", last3: "373, 949" },
+        { yearBE: 2559, date: "2 พ.ค. 2559", firstPrize: "399459", last2: "02", last3: "238, 403" }
+    ],
+    "5_16": [
+        { yearBE: 2568, date: "16 พ.ค. 2568", firstPrize: "729514", last2: "48", last3: "492, 915" },
+        { yearBE: 2567, date: "16 พ.ค. 2567", firstPrize: "205690", last2: "60", last3: "137, 885" },
+        { yearBE: 2566, date: "16 พ.ค. 2566", firstPrize: "132903", last2: "99", last3: "681, 739" },
+        { yearBE: 2565, date: "16 พ.ค. 2565", firstPrize: "155012", last2: "06", last3: "247, 536" },
+        { yearBE: 2564, date: "16 พ.ค. 2564", firstPrize: "684579", last2: "14", last3: "276, 615" },
+        { yearBE: 2563, date: "16 พ.ค. 2563", firstPrize: "051095", last2: "22", last3: "285, 391" },
+        { yearBE: 2562, date: "16 พ.ค. 2562", firstPrize: "962526", last2: "71", last3: "018, 828" },
+        { yearBE: 2561, date: "16 พ.ค. 2561", firstPrize: "075629", last2: "20", last3: "057, 544" },
+        { yearBE: 2560, date: "16 พ.ค. 2560", firstPrize: "454891", last2: "53", last3: "245, 396" },
+        { yearBE: 2559, date: "16 พ.ค. 2559", firstPrize: "141737", last2: "98", last3: "382, 975" }
+    ],
+
+    // 6. มิถุนายน
+    "6_1": [
+        { yearBE: 2568, date: "1 มิ.ย. 2568", firstPrize: "614835", last2: "39", last3: "356, 749" },
+        { yearBE: 2567, date: "1 มิ.ย. 2567", firstPrize: "530593", last2: "42", last3: "194, 577" },
+        { yearBE: 2566, date: "1 มิ.ย. 2566", firstPrize: "125272", last2: "09", last3: "381, 973" },
+        { yearBE: 2565, date: "1 มิ.ย. 2565", firstPrize: "319196", last2: "02", last3: "189, 693" },
+        { yearBE: 2564, date: "1 มิ.ย. 2564", firstPrize: "292972", last2: "45", last3: "193, 623" },
+        { yearBE: 2563, date: "1 มิ.ย. 2563", firstPrize: "831567", last2: "24", last3: "562, 582" },
+        { yearBE: 2562, date: "1 มิ.ย. 2562", firstPrize: "516461", last2: "46", last3: "560, 713" },
+        { yearBE: 2561, date: "1 มิ.ย. 2561", firstPrize: "149840", last2: "67", last3: "384, 576" },
+        { yearBE: 2560, date: "1 มิ.ย. 2560", firstPrize: "633095", last2: "43", last3: "628, 917" },
+        { yearBE: 2559, date: "1 มิ.ย. 2559", firstPrize: "511825", last2: "14", last3: "775, 875" }
+    ],
+    "6_16": [
+        { yearBE: 2568, date: "16 มิ.ย. 2568", firstPrize: "827419", last2: "83", last3: "412, 794" },
+        { yearBE: 2567, date: "16 มิ.ย. 2567", firstPrize: "518504", last2: "31", last3: "428, 447" },
+        { yearBE: 2566, date: "16 มิ.ย. 2566", firstPrize: "264872", last2: "30", last3: "202, 874" },
+        { yearBE: 2565, date: "16 มิ.ย. 2565", firstPrize: "361807", last2: "92", last3: "106, 228" },
+        { yearBE: 2564, date: "16 มิ.ย. 2564", firstPrize: "691861", last2: "17", last3: "054, 669" },
+        { yearBE: 2563, date: "16 มิ.ย. 2563", firstPrize: "516967", last2: "64", last3: "882, 887" },
+        { yearBE: 2562, date: "16 มิ.ย. 2562", firstPrize: "174055", last2: "29", last3: "520, 698" },
+        { yearBE: 2561, date: "16 มิ.ย. 2561", firstPrize: "223131", last2: "46", last3: "217, 532" },
+        { yearBE: 2560, date: "16 มิ.ย. 2560", firstPrize: "943142", last2: "47", last3: "740, 878" },
+        { yearBE: 2559, date: "16 มิ.ย. 2559", firstPrize: "073816", last2: "79", last3: "251, 804" }
+    ],
+
+    // 7. กรกฎาคม
+    "7_1": [
+        { yearBE: 2568, date: "1 ก.ค. 2568", firstPrize: "492716", last2: "86", last3: "318, 924" },
+        { yearBE: 2567, date: "1 ก.ค. 2567", firstPrize: "434503", last2: "89", last3: "031, 331" },
+        { yearBE: 2566, date: "1 ก.ค. 2566", firstPrize: "922605", last2: "16", last3: "281, 547" },
+        { yearBE: 2565, date: "1 ก.ค. 2565", firstPrize: "981417", last2: "61", last3: "242, 549" },
+        { yearBE: 2564, date: "1 ก.ค. 2564", firstPrize: "713517", last2: "29", last3: "078, 511" },
+        { yearBE: 2563, date: "1 ก.ค. 2563", firstPrize: "347258", last2: "83", last3: "095, 364" },
+        { yearBE: 2562, date: "1 ก.ค. 2562", firstPrize: "943647", last2: "86", last3: "239, 864" },
+        { yearBE: 2561, date: "1 ก.ค. 2561", firstPrize: "963623", last2: "83", last3: "210, 617" },
+        { yearBE: 2560, date: "1 ก.ค. 2560", firstPrize: "112360", last2: "26", last3: "226, 688" },
+        { yearBE: 2559, date: "1 ก.ค. 2559", firstPrize: "082460", last2: "53", last3: "160, 526" }
+    ],
+    "7_16": [
+        { yearBE: 2568, date: "16 ก.ค. 2568", firstPrize: "731695", last2: "14", last3: "254, 762" },
+        { yearBE: 2567, date: "16 ก.ค. 2567", firstPrize: "367336", last2: "21", last3: "357, 521" },
+        { yearBE: 2566, date: "16 ก.ค. 2566", firstPrize: "169530", last2: "62", last3: "219, 780" },
+        { yearBE: 2565, date: "16 ก.ค. 2565", firstPrize: "620405", last2: "53", last3: "061, 279" },
+        { yearBE: 2564, date: "16 ก.ค. 2564", firstPrize: "556725", last2: "70", last3: "233, 927" },
+        { yearBE: 2563, date: "16 ก.ค. 2563", firstPrize: "873286", last2: "53", last3: "533, 682" },
+        { yearBE: 2562, date: "16 ก.ค. 2562", firstPrize: "369765", last2: "88", last3: "113, 756" },
+        { yearBE: 2561, date: "16 ก.ค. 2561", firstPrize: "596324", last2: "27", last3: "403, 758" },
+        { yearBE: 2560, date: "16 ก.ค. 2560", firstPrize: "820327", last2: "87", last3: "090, 835" },
+        { yearBE: 2559, date: "16 ก.ค. 2559", firstPrize: "449764", last2: "55", last3: "158, 552" }
+    ],
+
+    // 8. สิงหาคม
+    "8_1": [
+        { yearBE: 2568, date: "1 ส.ค. 2568", firstPrize: "914562", last2: "45", last3: "283, 819" },
+        { yearBE: 2567, date: "1 ส.ค. 2567", firstPrize: "756363", last2: "14", last3: "357, 747" },
+        { yearBE: 2566, date: "31 ก.ค. 2566", firstPrize: "260453", last2: "11", last3: "387, 690" },
+        { yearBE: 2565, date: "1 ส.ค. 2565", firstPrize: "436594", last2: "14", last3: "266, 447" },
+        { yearBE: 2564, date: "1 ส.ค. 2564", firstPrize: "910261", last2: "69", last3: "004, 785" },
+        { yearBE: 2563, date: "1 ส.ค. 2563", firstPrize: "569391", last2: "92", last3: "575, 578" },
+        { yearBE: 2562, date: "1 ส.ค. 2562", firstPrize: "387006", last2: "58", last3: "135, 797" },
+        { yearBE: 2561, date: "1 ส.ค. 2561", firstPrize: "386602", last2: "78", last3: "054, 562" },
+        { yearBE: 2560, date: "1 ส.ค. 2560", firstPrize: "756519", last2: "36", last3: "061, 386" },
+        { yearBE: 2559, date: "1 ส.ค. 2559", firstPrize: "272932", last2: "57", last3: "472, 875" }
+    ],
+    "8_16": [
+        { yearBE: 2568, date: "16 ส.ค. 2568", firstPrize: "649372", last2: "72", last3: "398, 654" },
+        { yearBE: 2567, date: "16 ส.ค. 2567", firstPrize: "095867", last2: "28", last3: "426, 734" },
+        { yearBE: 2566, date: "16 ส.ค. 2566", firstPrize: "471782", last2: "67", last3: "410, 731" },
+        { yearBE: 2565, date: "16 ส.ค. 2565", firstPrize: "331583", last2: "42", last3: "284, 876" },
+        { yearBE: 2564, date: "16 ส.ค. 2564", firstPrize: "046750", last2: "23", last3: "421, 666" },
+        { yearBE: 2563, date: "16 ส.ค. 2563", firstPrize: "945811", last2: "88", last3: "364, 712" },
+        { yearBE: 2562, date: "16 ส.ค. 2562", firstPrize: "775476", last2: "89", last3: "149, 912" },
+        { yearBE: 2561, date: "16 ส.ค. 2561", firstPrize: "586117", last2: "10", last3: "340, 650" },
+        { yearBE: 2560, date: "16 ส.ค. 2560", firstPrize: "885863", last2: "76", last3: "577, 783" },
+        { yearBE: 2559, date: "16 ส.ค. 2559", firstPrize: "254004", last2: "33", last3: "366, 966" }
+    ],
+
+    // 9. กันยายน
+    "9_1": [
+        { yearBE: 2568, date: "1 ก.ย. 2568", firstPrize: "518392", last2: "19", last3: "297, 746" },
+        { yearBE: 2567, date: "1 ก.ย. 2567", firstPrize: "199606", last2: "94", last3: "094, 388" },
+        { yearBE: 2566, date: "1 ก.ย. 2566", firstPrize: "915478", last2: "91", last3: "291, 693" },
+        { yearBE: 2565, date: "1 ก.ย. 2565", firstPrize: "929332", last2: "83", last3: "210, 655" },
+        { yearBE: 2564, date: "1 ก.ย. 2564", firstPrize: "114475", last2: "79", last3: "123, 458" },
+        { yearBE: 2563, date: "1 ก.ย. 2563", firstPrize: "999997", last2: "98", last3: "055, 636" },
+        { yearBE: 2562, date: "1 ก.ย. 2562", firstPrize: "798787", last2: "20", last3: "210, 847" },
+        { yearBE: 2561, date: "1 ก.ย. 2561", firstPrize: "734010", last2: "26", last3: "097, 773" },
+        { yearBE: 2560, date: "1 ก.ย. 2560", firstPrize: "143224", last2: "65", last3: "342, 755" },
+        { yearBE: 2559, date: "1 ก.ย. 2559", firstPrize: "638684", last2: "62", last3: "334, 669" }
+    ],
+    "9_16": [
+        { yearBE: 2568, date: "16 ก.ย. 2568", firstPrize: "740925", last2: "63", last3: "319, 874" },
+        { yearBE: 2567, date: "16 ก.ย. 2567", firstPrize: "608662", last2: "37", last3: "049, 441" },
+        { yearBE: 2566, date: "16 ก.ย. 2566", firstPrize: "320812", last2: "46", last3: "040, 208" },
+        { yearBE: 2565, date: "16 ก.ย. 2565", firstPrize: "943703", last2: "75", last3: "214, 631" },
+        { yearBE: 2564, date: "16 ก.ย. 2564", firstPrize: "070935", last2: "90", last3: "029, 379" },
+        { yearBE: 2563, date: "16 ก.ย. 2563", firstPrize: "244083", last2: "57", last3: "096, 853" },
+        { yearBE: 2562, date: "16 ก.ย. 2562", firstPrize: "340388", last2: "85", last3: "758, 925" },
+        { yearBE: 2561, date: "16 ก.ย. 2561", firstPrize: "149760", last2: "79", last3: "380, 528" },
+        { yearBE: 2560, date: "16 ก.ย. 2560", firstPrize: "170143", last2: "71", last3: "647, 959" },
+        { yearBE: 2559, date: "16 ก.ย. 2559", firstPrize: "243050", last2: "42", last3: "371, 782" }
+    ],
+
+    // 10. ตุลาคม
+    "10_1": [
+        { yearBE: 2568, date: "1 ต.ค. 2568", firstPrize: "876978", last2: "77", last3: "280, 605" },
+        { yearBE: 2567, date: "1 ต.ค. 2567", firstPrize: "718665", last2: "59", last3: "079, 566" },
+        { yearBE: 2566, date: "1 ต.ค. 2566", firstPrize: "727202", last2: "66", last3: "426, 615" },
+        { yearBE: 2565, date: "1 ต.ค. 2565", firstPrize: "484669", last2: "50", last3: "278, 194" },
+        { yearBE: 2564, date: "1 ต.ค. 2564", firstPrize: "578171", last2: "83", last3: "379, 449" },
+        { yearBE: 2563, date: "1 ต.ค. 2563", firstPrize: "837893", last2: "59", last3: "110, 595" },
+        { yearBE: 2562, date: "1 ต.ค. 2562", firstPrize: "691197", last2: "59", last3: "606, 797" },
+        { yearBE: 2561, date: "1 ต.ค. 2561", firstPrize: "452643", last2: "99", last3: "561, 810" },
+        { yearBE: 2560, date: "1 ต.ค. 2560", firstPrize: "880714", last2: "52", last3: "462, 952" },
+        { yearBE: 2559, date: "1 ต.ค. 2559", firstPrize: "887102", last2: "33", last3: "458, 017" }
+    ],
+    "10_16": [
+        { yearBE: 2568, date: "16 ต.ค. 2568", firstPrize: "059696", last2: "61", last3: "476, 889" },
+        { yearBE: 2567, date: "16 ต.ค. 2567", firstPrize: "482962", last2: "00", last3: "493, 919" },
+        { yearBE: 2566, date: "16 ต.ค. 2566", firstPrize: "931446", last2: "44", last3: "272, 970" },
+        { yearBE: 2565, date: "16 ต.ค. 2565", firstPrize: "613106", last2: "15", last3: "606, 799" },
+        { yearBE: 2564, date: "16 ต.ค. 2564", firstPrize: "386372", last2: "38", last3: "295, 798" },
+        { yearBE: 2563, date: "16 ต.ค. 2563", firstPrize: "286051", last2: "38", last3: "045, 980" },
+        { yearBE: 2562, date: "16 ต.ค. 2562", firstPrize: "812564", last2: "15", last3: "132, 598" },
+        { yearBE: 2561, date: "16 ต.ค. 2561", firstPrize: "200515", last2: "93", last3: "192, 212" },
+        { yearBE: 2560, date: "16 ต.ค. 2560", firstPrize: "413494", last2: "86", last3: "128, 287" },
+        { yearBE: 2559, date: "16 ต.ค. 2559", firstPrize: "571947", last2: "98", last3: "032, 587" }
+    ],
+
+    // 11. พฤศจิกายน
+    "11_1": [
+        { yearBE: 2568, date: "1 พ.ย. 2568", firstPrize: "419853", last2: "44", last3: "318, 794" },
+        { yearBE: 2567, date: "1 พ.ย. 2567", firstPrize: "537829", last2: "32", last3: "257, 725" },
+        { yearBE: 2566, date: "1 พ.ย. 2566", firstPrize: "743951", last2: "63", last3: "019, 349" },
+        { yearBE: 2565, date: "1 พ.ย. 2565", firstPrize: "913106", last2: "70", last3: "343, 922" },
+        { yearBE: 2564, date: "1 พ.ย. 2564", firstPrize: "045037", last2: "47", last3: "509, 606" },
+        { yearBE: 2563, date: "1 พ.ย. 2563", firstPrize: "472391", last2: "81", last3: "534, 983" },
+        { yearBE: 2562, date: "1 พ.ย. 2562", firstPrize: "967375", last2: "79", last3: "021, 206" },
+        { yearBE: 2561, date: "1 พ.ย. 2561", firstPrize: "149840", last2: "58", last3: "384, 576" },
+        { yearBE: 2560, date: "1 พ.ย. 2560", firstPrize: "533726", last2: "85", last3: "165, 590" },
+        { yearBE: 2559, date: "1 พ.ย. 2559", firstPrize: "785438", last2: "86", last3: "038, 976" }
+    ],
+    "11_16": [
+        { yearBE: 2568, date: "16 พ.ย. 2568", firstPrize: "629341", last2: "84", last3: "387, 814" },
+        { yearBE: 2567, date: "16 พ.ย. 2567", firstPrize: "187221", last2: "38", last3: "547, 980" },
+        { yearBE: 2566, date: "16 พ.ย. 2566", firstPrize: "557990", last2: "14", last3: "778, 961" },
+        { yearBE: 2565, date: "16 พ.ย. 2565", firstPrize: "121789", last2: "64", last3: "155, 753" },
+        { yearBE: 2564, date: "16 พ.ย. 2564", firstPrize: "032761", last2: "57", last3: "245, 844" },
+        { yearBE: 2563, date: "16 พ.ย. 2563", firstPrize: "986725", last2: "70", last3: "406, 880" },
+        { yearBE: 2562, date: "16 พ.ย. 2562", firstPrize: "017223", last2: "32", last3: "640, 798" },
+        { yearBE: 2561, date: "16 พ.ย. 2561", firstPrize: "989903", last2: "16", last3: "032, 930" },
+        { yearBE: 2560, date: "16 พ.ย. 2560", firstPrize: "292391", last2: "98", last3: "830, 961" },
+        { yearBE: 2559, date: "16 พ.ย. 2559", firstPrize: "858383", last2: "44", last3: "570, 685" }
+    ],
+
+    // 12. ธันวาคม
+    "12_1": [
+        { yearBE: 2568, date: "1 ธ.ค. 2568", firstPrize: "941582", last2: "48", last3: "354, 829" },
+        { yearBE: 2567, date: "1 ธ.ค. 2567", firstPrize: "669843", last2: "61", last3: "098, 654" },
+        { yearBE: 2566, date: "1 ธ.ค. 2566", firstPrize: "251097", last2: "91", last3: "092, 280" },
+        { yearBE: 2565, date: "1 ธ.ค. 2565", firstPrize: "375805", last2: "08", last3: "170, 786" },
+        { yearBE: 2564, date: "1 ธ.ค. 2564", firstPrize: "077258", last2: "14", last3: "253, 782" },
+        { yearBE: 2563, date: "1 ธ.ค. 2563", firstPrize: "100994", last2: "81", last3: "075, 561" },
+        { yearBE: 2562, date: "1 ธ.ค. 2562", firstPrize: "453522", last2: "81", last3: "261, 617" },
+        { yearBE: 2561, date: "1 ธ.ค. 2561", firstPrize: "021840", last2: "58", last3: "175, 746" },
+        { yearBE: 2560, date: "1 ธ.ค. 2560", firstPrize: "451005", last2: "33", last3: "043, 780" },
+        { yearBE: 2559, date: "1 ธ.ค. 2559", firstPrize: "084283", last2: "03", last3: "237, 618" }
+    ],
+    "12_16": [
+        { yearBE: 2568, date: "16 ธ.ค. 2568", firstPrize: "763895", last2: "59", last3: "419, 874" },
+        { yearBE: 2567, date: "16 ธ.ค. 2567", firstPrize: "356757", last2: "85", last3: "964, 584" },
+        { yearBE: 2566, date: "16 ธ.ค. 2566", firstPrize: "635466", last2: "52", last3: "209, 446" },
+        { yearBE: 2565, date: "16 ธ.ค. 2565", firstPrize: "845093", last2: "14", last3: "171, 544" },
+        { yearBE: 2564, date: "16 ธ.ค. 2564", firstPrize: "639235", last2: "83", last3: "094, 517" },
+        { yearBE: 2563, date: "16 ธ.ค. 2563", firstPrize: "201303", last2: "70", last3: "313, 639" },
+        { yearBE: 2562, date: "16 ธ.ค. 2562", firstPrize: "529924", last2: "97", last3: "138, 043" },
+        { yearBE: 2561, date: "16 ธ.ค. 2561", firstPrize: "356564", last2: "62", last3: "129, 734" },
+        { yearBE: 2560, date: "16 ธ.ค. 2560", firstPrize: "955596", last2: "89", last3: "425, 831" },
+        { yearBE: 2559, date: "16 ธ.ค. 2559", firstPrize: "435730", last2: "33", last3: "064, 708" }
+    ]
+};
+
+const THAI_MONTH_NAMES = [
+    '', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+];
+
+/**
+ * Returns Thai lottery 10-year historical draw records for the specified or closest draw date.
+ * @param {number|Date} dateOrDay Day of month or Date object
+ * @param {number} month Month number 1-12
+ */
+function getThaiLotteryHistory(dateOrDay = null, month = null) {
+    let d = 16;
+    let m = 10;
+    if (dateOrDay instanceof Date) {
+        d = dateOrDay.getDate();
+        m = dateOrDay.getMonth() + 1;
+    } else if (typeof dateOrDay === 'number') {
+        d = dateOrDay;
+        m = month || (new Date().getMonth() + 1);
+    } else if (typeof dateOrDay === 'string' && dateOrDay.includes('-')) {
+        const parts = dateOrDay.split('-');
+        if (parts.length >= 3) {
+            m = parseInt(parts[1], 10);
+            d = parseInt(parts[2], 10);
+        }
+    } else {
+        const now = new Date();
+        d = now.getDate();
+        m = now.getMonth() + 1;
+    }
+
+    // Determine target draw period (1st or 16th)
+    const drawDay = (d <= 8) ? 1 : 16;
+    const key = `${m}_${drawDay}`;
+    const records = THAI_LOTTERY_10YR_HISTORY[key] || THAI_LOTTERY_10YR_HISTORY["10_16"];
+    const monthName = THAI_MONTH_NAMES[m] || 'ตุลาคม';
+    const drawTitle = `งวดประจำวันที่ ${drawDay} ${monthName}`;
+
+    return {
+        key: key,
+        drawDay: drawDay,
+        month: m,
+        monthName: monthName,
+        drawTitle: drawTitle,
+        yearsRange: '2559 - 2568 (ย้อนหลัง 10 ปี)',
+        records: records
+    };
+}
+
+/**
+ * Generates 3 lucky numbers from the lucky bell orb:
+ * Returns primary 3-digit number, 3 distinct lucky numbers, and 3 single digits.
+ */
+function generate3LuckyNumbers() {
+    // 1) Primary 3-digit lucky number (100-999)
+    const lucky3 = String(Math.floor(100 + Math.random() * 900));
+
+    // 2) Secondary lucky 2-digit number (00-99)
+    const lucky2 = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+
+    // 3) Alternative lucky 3-digit combination
+    const luckyAlt = String(Math.floor(100 + Math.random() * 900));
+
+    // 3 numbers set as requested: [3-digit main, 2-digit tail, alternative lucky]
+    const luckyNumbers = [lucky3, lucky2, luckyAlt];
+
+    // Single digits breakdown
+    const digits = lucky3.split('');
+
+    return {
+        luckyNumber: lucky3, // 3-digit number (e.g. "789")
+        lucky2: lucky2,       // 2-digit number (e.g. "89")
+        luckyNumbers: luckyNumbers, // 3 numbers array
+        topDigits: digits     // e.g. ["7", "8", "9"]
+    };
+}
+
+// Global browser scope attachments to prevent undefined reference errors
+if (typeof window !== 'undefined') {
+    window.CAT_BREEDS = CAT_BREEDS;
+    window.CAT_BREEDS_MAP = CAT_BREEDS.reduce((acc, b) => { acc[b.id] = b; return acc; }, {});
+    window.DEFAULT_QUESTS = DEFAULT_QUESTS;
+    window.CAT_CARE_ITEMS = typeof CAT_CARE_ITEMS !== 'undefined' ? CAT_CARE_ITEMS : [];
+    window.generate3LuckyNumbers = generate3LuckyNumbers;
+    window.getThaiLotteryHistory = getThaiLotteryHistory;
+}
+

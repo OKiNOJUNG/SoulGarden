@@ -93,7 +93,7 @@
         <div class="online-presence-bar" id="onlinePresenceBar" style="display: none;">
             <div class="presence-chip" id="presenceChipNether">
                 <span class="presence-avatar">👨‍💻</span>
-                <span class="presence-name">Nether</span>
+                <span class="presence-name" id="presenceNetherName">Nether</span>
                 <span class="presence-dot offline" id="dotNether"></span>
                 <span class="presence-label" id="labelNether">ออฟไลน์</span>
             </div>
@@ -102,7 +102,7 @@
             </div>
             <div class="presence-chip" id="presenceChipPooja">
                 <span class="presence-avatar">🌸</span>
-                <span class="presence-name">Pooja</span>
+                <span class="presence-name" id="presencePoojaName">Pooja</span>
                 <span class="presence-dot offline" id="dotPooja"></span>
                 <span class="presence-label" id="labelPooja">ออฟไลน์</span>
             </div>
@@ -188,10 +188,15 @@
                         <p class="adoption-hero-desc">
                             ยินดีต้อนรับ Nether 👨‍💻 & Pooja 🌸! ทั้งสองมีแต้มเริ่มต้นคนละ <strong>300 แต้ม ⭐</strong> มาร่วมสุ่มรับเลี้ยงลูกแมวน้อยปริศนาที่ไม่รู้ว่าเป็นสายพันธุ์อะไร เมื่อร่วมกันดูแลจนครบ <strong>2 เดือน (60 วัน)</strong> จะเฉลยสายพันธุ์ และเมื่อครบ <strong>6 เดือน (180 วัน)</strong> สามารถร่วมกันเก็บเข้าคอลเล็กชันเพื่อเลี้ยงตัวใหม่ได้!
                         </p>
-                        <button class="primary-btn pulse-glow-btn" id="openAdoptionModalBtn">
-                            <span>🎁 สุ่มรับเลี้ยงลูกแมวน้อยปริศนา</span>
-                            <i data-lucide="sparkles"></i>
-                        </button>
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                            <button class="primary-btn pulse-glow-btn" id="openAdoptionModalBtn">
+                                <span>🎁 สุ่มรับเลี้ยงลูกแมวน้อยปริศนา</span>
+                                <i data-lucide="sparkles"></i>
+                            </button>
+                            <button type="button" class="secondary-btn open-cat-catalog-btn" id="openCatCatalogFromHeroBtn">
+                                <span>🐱 ดูสายพันธุ์แมวทั้ง 10 ชนิด</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Live Cat Care Controls (Shown after adoption) -->
@@ -503,13 +508,13 @@
             <section class="view-section" id="view-quiz">
                 <div class="quiz-leaderboard-card">
                     <div class="score-partner-col">
-                        <h4>Nether 👨‍💻</h4>
+                        <h4 id="quizLabelNether">Nether 👨‍💻</h4>
                         <div class="score-number" id="netherQuizScore">0</div>
                         <span style="font-size: 11px; color: #5D4037;">แต้มควิซสะสม</span>
                     </div>
                     <div style="font-size: 22px; font-weight: 800; color: #D84315;">VS</div>
                     <div class="score-partner-col">
-                        <h4>Pooja 🌸</h4>
+                        <h4 id="quizLabelPooja">Pooja 🌸</h4>
                         <div class="score-number" id="poojaQuizScore">0</div>
                         <span style="font-size: 11px; color: #795548;">แต้มควิซสะสม</span>
                     </div>
@@ -629,10 +634,27 @@
                 <h3 class="modal-title">📜 ประวัติการดูแลและความผูกพัน</h3>
                 <button class="modal-close-btn" data-close="modalActivityHistory"><i data-lucide="x"></i></button>
             </div>
-            <p style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 12px;">
+            <p style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 8px;">
                 บันทึกการกระทำในแอป เช็คได้ว่าใครให้อาหาร ใครตัดขน และวันเวลาที่ทำ
             </p>
-            <div id="activityHistoryList" style="display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto;">
+            <!-- Search & Category Filters (Ergonomic Toolbar Layout with Dropdown) -->
+            <div class="activity-filter-toolbar">
+                <div class="activity-search-field">
+                    <input type="text" id="activitySearchInput" class="form-input activity-search-input" placeholder="🔍 ค้นหากิจกรรม, รายละเอียด หรือชื่อ...">
+                    <button type="button" id="clearActivitySearchBtn" class="activity-search-clear-btn" style="display: none;" title="ล้างคำค้นหา">✕</button>
+                </div>
+                <div class="activity-dropdown-wrap">
+                    <select id="activityCategorySelect" class="form-input activity-dropdown-select">
+                        <option value="all">📂 ทุกหมวดหมู่กิจกรรม</option>
+                        <option value="cat">🐱 น้องแมว</option>
+                        <option value="meal">🍱 มื้ออาหาร</option>
+                        <option value="note">📝 โน้ตคู่</option>
+                        <option value="quiz">🎯 คำถาม</option>
+                        <option value="system">⚙️ ระบบ</option>
+                    </select>
+                </div>
+            </div>
+            <div id="activityHistoryList" style="display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto;">
                 <!-- Populated dynamically -->
             </div>
         </div>
@@ -699,6 +721,9 @@
             <button class="primary-btn pulse-glow-btn" id="confirmAdoptCatBtn">
                 <span>🎁 ยืนยันสุ่มรับเลี้ยงลูกแมวปริศนา</span>
             </button>
+            <button type="button" class="secondary-btn open-cat-catalog-btn" id="openCatCatalogFromAdoptionBtn" style="margin-top: 8px; width: 100%;">
+                <span>🐱 ดูสายพันธุ์แมวทั้ง 10 ชนิด</span>
+            </button>
         </div>
     </div>
 
@@ -715,18 +740,18 @@
         </div>
     </div>
 
-    <!-- Modal: Harvest Lucky Bell (1st & 16th of month only) -->
+    <!-- Modal: Harvest Lucky Bell Post-it (3 Lucky Numbers & 10-Year Thai Lottery History) -->
     <div class="custom-modal-backdrop" id="modalHarvest">
-        <div class="modal-dialog-box">
+        <div class="modal-dialog-box" style="max-width: 460px;">
             <div class="modal-header-row">
-                <h3 class="modal-title">🔮 เก็บเกี่ยวลูกแก้วให้โชค (เลข 00-99)</h3>
+                <h3 class="modal-title">🔮 สั่นระฆังรับพร & สุ่ม 3 เลขนำโชค</h3>
                 <button type="button" class="modal-close-btn" data-close="modalHarvest"><i data-lucide="x"></i></button>
             </div>
             <div style="text-align: center; margin-bottom: 14px;">
                 <div style="font-size: 48px; margin-bottom: 6px;">🔔✨</div>
                 <h4 style="font-size: 15px; font-weight: 800; color: var(--accent-coral);">เปิดให้รับโชควันที่ 1 และ 16 ของเดือน!</h4>
                 <p style="font-size: 12px; color: var(--text-secondary);">
-                    เขียนคำอวยพรหรือความในใจถึงกัน ระบบจะสุ่มเลขนำโชค 00-99 ให้บน Post-it สีประจำสายพันธุ์แมวโดยอัตโนมัติ
+                    เขียนคำอวยพรหรือความในใจถึงกัน ระบบจะสุ่ม <strong>3 เลขนำโชค</strong> จากลูกแก้ววิเศษ พร้อมแสดงสถิติผลลอตเตอรี่ไทยย้อนหลัง 10 ปีในงวดนี้ และแอนิเมชันรับพรเต็มหน้าจอสุดอลังการ
                 </p>
             </div>
             <form id="harvestForm" onsubmit="event.preventDefault();">
@@ -739,10 +764,10 @@
                     <textarea class="form-input" id="harvestMsgInput" rows="3" placeholder="เขียนข้อความความรู้สึกจากใจ..." required></textarea>
                 </div>
                 <div style="background: var(--bg-subtle); padding: 10px; border-radius: var(--radius-sm); font-size: 11.5px; color: var(--text-secondary); margin-bottom: 14px;">
-                    📌 สี Post-it จะถูกกำหนดตามสายพันธุ์แมว (<span id="harvestBreedColorName">สีประจำสายพันธุ์</span>) และสุ่มเลข 00-99 ให้อัตโนมัติ
+                    📌 สี Post-it จะถูกกำหนดตามสายพันธุ์แมว (<span id="harvestBreedColorName">สีประจำสายพันธุ์</span>) พร้อมรับ 3 เลขนำโชคและเอฟเฟกต์รับพรเต็มจอ (+100 แต้ม)
                 </div>
                 <button type="submit" class="primary-btn" id="confirmHarvestBtn">
-                    แปะลงกำแพงพร้อมสุ่มเลขให้โชค (+100 แต้ม)
+                    ✨ แปะลงกำแพง & รับพรอันศักดิ์สิทธิ์ (+100 แต้ม)
                 </button>
             </form>
         </div>
@@ -1243,6 +1268,16 @@
             <div id="mealHistoryContainerList" style="display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto;">
                 <!-- Populated dynamically via JS -->
             </div>
+        </div>
+    </div>
+
+    <!-- Full-Screen Divine Blessing VFX Overlay (Requirement 6 & 7) -->
+    <div class="blessing-fullscreen-overlay" id="blessingFullScreenOverlay" style="display: none;">
+        <div class="blessing-sunbeams"></div>
+        <div class="blessing-pillar"></div>
+        <div id="blessingParticlesContainer"></div>
+        <div class="blessing-card" id="blessingContentCard">
+            <!-- Dynamic Content populated by triggerFullScreenBlessingVFX() -->
         </div>
     </div>
 

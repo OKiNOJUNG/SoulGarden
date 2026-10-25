@@ -61,6 +61,9 @@ class AppController {
 
     setLoggedInUser(userId) {
         this.currentUser = userId;
+        if (!this.currentMealPartner) {
+            this.currentMealPartner = userId;
+        }
         sessionStorage.setItem('lovetree_active_user', userId);
         localStorage.setItem('lovetree_active_user', userId);
 
@@ -272,9 +275,6 @@ class AppController {
         if (settingsBtn) {
             settingsBtn.style.display = (this.currentUser === 'nether') ? 'flex' : 'none';
         }
-
-        this.currentMealPartner = this.currentUser;
-        this.updateMealPartnerTabs();
     }
 
     navigateTo(viewId) {
@@ -947,6 +947,11 @@ class AppController {
     renderMealsView() {
         const data = window.appStorage.getLocalData();
         const todayStr = new Date().toISOString().split('T')[0];
+
+        if (!this.currentMealPartner) {
+            this.currentMealPartner = this.currentUser || 'nether';
+        }
+        this.updateMealPartnerTabs();
 
         // Auto-initialize today's 3 main meals for both partners if missing!
         if (!data.meals) data.meals = {};
@@ -3325,7 +3330,12 @@ class AppController {
             return;
         }
         const modal = document.getElementById(modalId);
-        if (modal) modal.classList.remove('open');
+        if (modal) {
+            modal.classList.remove('open');
+            if (window.soundManager && typeof window.soundManager.playClick === 'function') {
+                try { window.soundManager.playClick(); } catch (e) {}
+            }
+        }
     }
 
     updateMealPartnerTabs() {
@@ -4556,8 +4566,8 @@ class AppController {
         }
 
         let list = Array.from(recordsMap.values());
-        // Sort descending by date
-        list.sort((a, b) => b.date.localeCompare(a.date));
+        // Sort descending by date safely
+        list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
         // Filter by partner
         if (this.currentMealHistoryPartner !== 'all') {
@@ -5201,6 +5211,16 @@ class AppController {
 
         // 5. Meal History (Automatic all-days archive)
         safeOn('viewMealHistoryBtn', 'click', () => this.openMealHistoryModal());
+        safeOn('closeMealHistoryBtn', 'click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeModal('modalMealHistory');
+        });
+        safeOn('closeMealHistoryFooterBtn', 'click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeModal('modalMealHistory');
+        });
 
         const mealHistFilters = document.querySelectorAll('.meal-history-filter-btn');
         mealHistFilters.forEach(btn => {

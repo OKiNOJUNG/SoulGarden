@@ -205,9 +205,9 @@ class AppStorage {
 
         // Apply decay if at least 15 minutes passed
         if (hoursElapsed >= 0.25) {
-            const fullnessDrop = Math.floor(hoursElapsed * 2.0);
-            const affectionDrop = Math.floor(hoursElapsed * 1.8);
-            const healthDrop = Math.floor(hoursElapsed * 1.2);
+            const fullnessDrop = Math.min(30, Math.floor(hoursElapsed * 2.0));
+            const affectionDrop = Math.min(25, Math.floor(hoursElapsed * 1.8));
+            const healthDrop = Math.min(20, Math.floor(hoursElapsed * 1.2));
 
             if (fullnessDrop > 0) {
                 data.cat.fullnessLevel = Math.max(20, (data.cat.fullnessLevel !== undefined ? data.cat.fullnessLevel : 80) - fullnessDrop);

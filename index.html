@@ -1255,18 +1255,24 @@
         <div class="modal-dialog-box" style="max-width: 440px;">
             <div class="modal-header-row">
                 <h3 class="modal-title">📖 คลังประวัติมื้ออาหารที่บันทึกไว้</h3>
-                <button class="modal-close-btn" data-close="modalMealHistory"><i data-lucide="x"></i></button>
+                <button type="button" class="modal-close-btn" id="closeMealHistoryBtn" data-close="modalMealHistory" aria-label="ปิด"><i data-lucide="x"></i></button>
             </div>
             
             <!-- Partner Filter Tabs -->
             <div style="display: flex; gap: 6px; margin-bottom: 12px;">
-                <button class="partner-tab-btn active-tab meal-history-filter-btn" data-partner="all">ทั้งหมด</button>
-                <button class="partner-tab-btn meal-history-filter-btn" data-partner="nether">Nether 👨‍💻</button>
-                <button class="partner-tab-btn meal-history-filter-btn" data-partner="Pooja">Pooja 🌸</button>
+                <button type="button" class="partner-tab-btn active-tab meal-history-filter-btn" data-partner="all">ทั้งหมด</button>
+                <button type="button" class="partner-tab-btn meal-history-filter-btn" data-partner="nether">Nether 👨‍💻</button>
+                <button type="button" class="partner-tab-btn meal-history-filter-btn" data-partner="Pooja">Pooja 🌸</button>
             </div>
 
             <div id="mealHistoryContainerList" style="display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto;">
                 <!-- Populated dynamically via JS -->
+            </div>
+
+            <div style="margin-top: 14px;">
+                <button type="button" class="secondary-btn" id="closeMealHistoryFooterBtn" data-close="modalMealHistory" style="width: 100%; padding: 10px; font-weight: 700;">
+                    ปิดหน้าต่าง
+                </button>
             </div>
         </div>
     </div>

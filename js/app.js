@@ -779,9 +779,19 @@ class AppController {
         if (!todayStr) todayStr = new Date().toISOString().split('T')[0];
         if (!me && this.currentUser && data.users) me = data.users[this.currentUser];
 
-        // 1. Check direct multi-device completedQuests registry
-        if (data.completedQuests && data.completedQuests[todayStr] && data.completedQuests[todayStr][this.currentUser] && data.completedQuests[todayStr][this.currentUser][q.id]) {
-            return true;
+        // 1. Check direct multi-device completedQuests registry (including aliases)
+        if (data.completedQuests && data.completedQuests[todayStr] && data.completedQuests[todayStr][this.currentUser]) {
+            const userQuests = data.completedQuests[todayStr][this.currentUser];
+            if (userQuests[q.id] ||
+                (q.id === 'q_feed' && userQuests['q_care']) ||
+                (q.id === 'q_care' && userQuests['q_feed']) ||
+                (q.id === 'q_meal' && userQuests['q_meals']) ||
+                (q.id === 'q_meals' && userQuests['q_meal']) ||
+                (q.id === 'q_note' && userQuests['q_notes']) ||
+                (q.id === 'q_notes' && userQuests['q_note']) ||
+                (q.category && userQuests[`q_${q.category}`])) {
+                return true;
+            }
         }
 
         // 2. Category specific evaluations
@@ -829,6 +839,13 @@ class AppController {
         if (!data.completedQuests[todayStr]) data.completedQuests[todayStr] = {};
         if (!data.completedQuests[todayStr][this.currentUser]) data.completedQuests[todayStr][this.currentUser] = {};
         data.completedQuests[todayStr][this.currentUser][questId] = true;
+        // Keep aliases in sync
+        if (questId === 'q_care') data.completedQuests[todayStr][this.currentUser]['q_feed'] = true;
+        if (questId === 'q_feed') data.completedQuests[todayStr][this.currentUser]['q_care'] = true;
+        if (questId === 'q_meals') data.completedQuests[todayStr][this.currentUser]['q_meal'] = true;
+        if (questId === 'q_meal') data.completedQuests[todayStr][this.currentUser]['q_meals'] = true;
+        if (questId === 'q_notes') data.completedQuests[todayStr][this.currentUser]['q_note'] = true;
+        if (questId === 'q_note') data.completedQuests[todayStr][this.currentUser]['q_notes'] = true;
         window.appStorage.saveLocalData(data);
     }
 

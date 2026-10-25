@@ -911,10 +911,17 @@ class AppStorage {
                 this.db = firebase.firestore();
                 this.isFirebaseConnected = true;
                 this.setupFirebaseListeners();
+                // Offline fallback timer: if no snapshot received within 8s, allow local operations
+                setTimeout(() => {
+                    if (!this.hasReceivedInitialRemoteSync) {
+                        this.hasReceivedInitialRemoteSync = true;
+                    }
+                }, 8000);
             }
         } catch (err) {
             console.warn('Firebase init error:', err);
             this.isFirebaseConnected = false;
+            this.hasReceivedInitialRemoteSync = true;
         }
     }
 
@@ -1036,21 +1043,120 @@ class AppStorage {
                         });
                         merged.pastQuizzes = Array.from(pastQuizMap.values());
 
-                        // 3. Smart merge users (preserve highest points and names)
+                        // 3. Smart merge users (preserve highest points, longest streak, newest checkin)
                         if (!merged.users) merged.users = {};
+                        const isAvatarCorrupted = (str) => (!str || typeof str !== 'string' || str.includes('\uFFFD') || str.includes('ð') || str.includes('â') || str.includes('?'));
+                        const todayStr = new Date().toISOString().split('T')[0];
                         ['nether', 'Pooja'].forEach(uid => {
                             const rUser = cleanRemote.users?.[uid] || {};
                             const lUser = local.users?.[uid] || {};
+                            let lastCheckin = rUser.lastCheckin || lUser.lastCheckin || '';
+                            if (lUser.lastCheckin && rUser.lastCheckin) {
+                                lastCheckin = lUser.lastCheckin > rUser.lastCheckin ? lUser.lastCheckin : rUser.lastCheckin;
+                            }
+                            const safeAvatar = (!isAvatarCorrupted(rUser.avatar)) ? rUser.avatar : ((!isAvatarCorrupted(lUser.avatar)) ? lUser.avatar : (uid === 'nether' ? '👨‍💻' : '🌸'));
                             merged.users[uid] = {
                                 ...lUser,
                                 ...rUser,
                                 points: Math.max(lUser.points || 300, rUser.points || 300),
+                                streak: Math.max(lUser.streak || 1, rUser.streak || 1),
+                                lastCheckin: lastCheckin,
+                                hasSeenWelcomeManual: !!(lUser.hasSeenWelcomeManual || rUser.hasSeenWelcomeManual),
+                                morningReportViewedDate: (lUser.morningReportViewedDate === todayStr || rUser.morningReportViewedDate === todayStr) ? todayStr : (rUser.morningReportViewedDate || lUser.morningReportViewedDate || ''),
                                 name: rUser.name || lUser.name || uid,
-                                avatar: (rUser.avatar && !rUser.avatar.includes('\uFFFD') && !rUser.avatar.includes('ð') && !rUser.avatar.includes('â') && !rUser.avatar.includes('?')) ? rUser.avatar : (lUser.avatar || (uid === 'nether' ? '👨‍💻' : '🌸'))
+                                avatar: safeAvatar
                             };
                         });
 
-                        // 4. Merge activity logs
+                        // 4. Smart merge completedQuests (Crucial for 2-device mission sync!)
+                        merged.completedQuests = {};
+                        const allQuestDays = new Set([
+                            ...Object.keys(cleanRemote.completedQuests || {}),
+                            ...Object.keys(local.completedQuests || {})
+                        ]);
+                        allQuestDays.forEach(day => {
+                            merged.completedQuests[day] = {};
+                            ['nether', 'Pooja'].forEach(uid => {
+                                const rQ = cleanRemote.completedQuests?.[day]?.[uid] || {};
+                                const lQ = local.completedQuests?.[day]?.[uid] || {};
+                                merged.completedQuests[day][uid] = { ...lQ, ...rQ };
+                            });
+                        });
+
+                        // 5. Smart merge dailyCare (Crucial for quest completion verification!)
+                        merged.dailyCare = {};
+                        const allCareDays = new Set([
+                            ...Object.keys(cleanRemote.dailyCare || {}),
+                            ...Object.keys(local.dailyCare || {})
+                        ]);
+                        allCareDays.forEach(day => {
+                            const rDay = cleanRemote.dailyCare?.[day] || {};
+                            const lDay = local.dailyCare?.[day] || {};
+                            merged.dailyCare[day] = {
+                                foodBy: { ...(rDay.foodBy || {}), ...(lDay.foodBy || {}) },
+                                treatBy: { ...(rDay.treatBy || {}), ...(lDay.treatBy || {}) },
+                                healthBy: { ...(rDay.healthBy || {}), ...(lDay.healthBy || {}) },
+                                playBy: { ...(rDay.playBy || {}), ...(lDay.playBy || {}) }
+                            };
+                            ['nether', 'Pooja'].forEach(uid => {
+                                const rC = rDay[uid] || {};
+                                const lC = lDay[uid] || {};
+                                merged.dailyCare[day][uid] = {
+                                    food: Math.max(rC.food || 0, lC.food || 0),
+                                    treats: Math.max(rC.treats || 0, lC.treats || 0),
+                                    health: Math.max(rC.health || 0, lC.health || 0),
+                                    playTime: Math.max(rC.playTime || 0, lC.playTime || 0),
+                                    noteAction: !!(rC.noteAction || lC.noteAction)
+                                };
+                            });
+                        });
+
+                        // 6. Smart merge cat progress & bonding scores
+                        if (cleanRemote.cat && local.cat) {
+                            const rCat = cleanRemote.cat;
+                            const lCat = local.cat;
+                            merged.cat = {
+                                ...rCat,
+                                growthPercent: Math.max(rCat.growthPercent || 5, lCat.growthPercent || 5),
+                                growthDay: Math.max(rCat.growthDay || 1, lCat.growthDay || 1),
+                                totalFed: Math.max(rCat.totalFed || 0, lCat.totalFed || 0),
+                                totalTreated: Math.max(rCat.totalTreated || 0, lCat.totalTreated || 0),
+                                health: Math.max(rCat.health !== undefined ? rCat.health : 100, lCat.health !== undefined ? lCat.health : 100),
+                                fullnessLevel: Math.max(rCat.fullnessLevel !== undefined ? rCat.fullnessLevel : 80, lCat.fullnessLevel !== undefined ? lCat.fullnessLevel : 80),
+                                affectionLevel: Math.max(rCat.affectionLevel !== undefined ? rCat.affectionLevel : 60, lCat.affectionLevel !== undefined ? lCat.affectionLevel : 60),
+                                hasFever: (rCat.hasFever === false || lCat.hasFever === false) ? false : !!(rCat.hasFever || lCat.hasFever),
+                                hasLongNails: (rCat.hasLongNails === false || lCat.hasLongNails === false) ? false : !!(rCat.hasLongNails || lCat.hasLongNails),
+                                isRevealed: !!(rCat.isRevealed || lCat.isRevealed),
+                                playTime: {
+                                    nether: Math.max(rCat.playTime?.nether || 0, lCat.playTime?.nether || 0),
+                                    Pooja: Math.max(rCat.playTime?.Pooja || 0, lCat.playTime?.Pooja || 0)
+                                },
+                                bondingScores: {
+                                    nether: {
+                                        food: Math.max(rCat.bondingScores?.nether?.food || 0, lCat.bondingScores?.nether?.food || 0),
+                                        treats: Math.max(rCat.bondingScores?.nether?.treats || 0, lCat.bondingScores?.nether?.treats || 0),
+                                        toys: Math.max(rCat.bondingScores?.nether?.toys || 0, lCat.bondingScores?.nether?.toys || 0),
+                                        vaccine: Math.max(rCat.bondingScores?.nether?.vaccine || 0, lCat.bondingScores?.nether?.vaccine || 0),
+                                        grooming: Math.max(rCat.bondingScores?.nether?.grooming || 0, lCat.bondingScores?.nether?.grooming || 0),
+                                        play: Math.max(rCat.bondingScores?.nether?.play || 0, lCat.bondingScores?.nether?.play || 0),
+                                        total: Math.max(rCat.bondingScores?.nether?.total || 0, lCat.bondingScores?.nether?.total || 0)
+                                    },
+                                    Pooja: {
+                                        food: Math.max(rCat.bondingScores?.Pooja?.food || 0, lCat.bondingScores?.Pooja?.food || 0),
+                                        treats: Math.max(rCat.bondingScores?.Pooja?.treats || 0, lCat.bondingScores?.Pooja?.treats || 0),
+                                        toys: Math.max(rCat.bondingScores?.Pooja?.toys || 0, lCat.bondingScores?.Pooja?.toys || 0),
+                                        vaccine: Math.max(rCat.bondingScores?.Pooja?.vaccine || 0, lCat.bondingScores?.Pooja?.vaccine || 0),
+                                        grooming: Math.max(rCat.bondingScores?.Pooja?.grooming || 0, lCat.bondingScores?.Pooja?.grooming || 0),
+                                        play: Math.max(rCat.bondingScores?.Pooja?.play || 0, lCat.bondingScores?.Pooja?.play || 0),
+                                        total: Math.max(rCat.bondingScores?.Pooja?.total || 0, lCat.bondingScores?.Pooja?.total || 0)
+                                    }
+                                }
+                            };
+                        } else if (!merged.cat && local.cat) {
+                            merged.cat = local.cat;
+                        }
+
+                        // 7. Merge activity logs
                         const remoteLogs = (cleanRemote.activityLogs && Array.isArray(cleanRemote.activityLogs)) ? cleanRemote.activityLogs : [];
                         const localLogs = (local && Array.isArray(local.activityLogs)) ? local.activityLogs : [];
                         const logMap = new Map();
@@ -1060,7 +1166,7 @@ class AppStorage {
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .slice(0, 150);
 
-                        // 5. Merge meals safely
+                        // 8. Merge meals safely
                         if (local.meals) {
                             if (!merged.meals) merged.meals = {};
                             Object.keys(local.meals).forEach(dateKey => {
@@ -1093,10 +1199,73 @@ class AppStorage {
                             });
                         }
 
-                        // Cat preservation: keep whichever cat is adopted
-                        if (!merged.cat && local.cat) {
-                            merged.cat = local.cat;
+                        // 9. Merge Inventory & Toys (take highest quantity to preserve items)
+                        if (local.inventory && cleanRemote.inventory) {
+                            merged.inventory = {};
+                            const allInvKeys = new Set([...Object.keys(local.inventory), ...Object.keys(cleanRemote.inventory)]);
+                            allInvKeys.forEach(k => {
+                                merged.inventory[k] = Math.max(local.inventory[k] || 0, cleanRemote.inventory[k] || 0);
+                            });
                         }
+                        if (local.toyInventory && cleanRemote.toyInventory) {
+                            merged.toyInventory = {};
+                            const allToyKeys = new Set([...Object.keys(local.toyInventory), ...Object.keys(cleanRemote.toyInventory)]);
+                            allToyKeys.forEach(k => {
+                                merged.toyInventory[k] = Math.max(local.toyInventory[k] || 0, cleanRemote.toyInventory[k] || 0);
+                            });
+                        }
+
+                        // 10. Merge Calendar Moods
+                        merged.calendarMoods = {};
+                        const allMoodDays = new Set([
+                            ...Object.keys(cleanRemote.calendarMoods || {}),
+                            ...Object.keys(local.calendarMoods || {})
+                        ]);
+                        allMoodDays.forEach(d => {
+                            merged.calendarMoods[d] = {
+                                ...(cleanRemote.calendarMoods?.[d] || {}),
+                                ...(local.calendarMoods?.[d] || {})
+                            };
+                        });
+
+                        // 11. Merge Chat Messages
+                        const msgMap = new Map();
+                        (cleanRemote.chatMessages || []).forEach(m => {
+                            if (m && (m.id || m.timestamp)) msgMap.set(m.id || `${m.timestamp}_${m.sender}`, m);
+                        });
+                        (local.chatMessages || []).forEach(m => {
+                            if (!m) return;
+                            const key = m.id || `${m.timestamp}_${m.sender}`;
+                            if (!msgMap.has(key)) {
+                                msgMap.set(key, m);
+                            } else {
+                                const existing = msgMap.get(key);
+                                if (m.readByPartner) existing.readByPartner = true;
+                            }
+                        });
+                        merged.chatMessages = Array.from(msgMap.values())
+                            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                            .slice(-150);
+
+                        // 12. Merge Postits & Cat Collection
+                        const postitMap = new Map();
+                        (cleanRemote.postits || []).forEach(p => { if (p && p.id) postitMap.set(p.id, p); });
+                        (local.postits || []).forEach(p => { if (p && p.id && !postitMap.has(p.id)) postitMap.set(p.id, p); });
+                        merged.postits = Array.from(postitMap.values());
+
+                        const collMap = new Map();
+                        (cleanRemote.catCollection || []).forEach(c => { if (c && c.id) collMap.set(c.id, c); });
+                        (local.catCollection || []).forEach(c => { if (c && c.id && !collMap.has(c.id)) collMap.set(c.id, c); });
+                        merged.catCollection = Array.from(collMap.values());
+
+                        // Check if local had new data that wasn't in remote, to push unified state
+                        const localHadNewData = (
+                            JSON.stringify(merged.completedQuests) !== JSON.stringify(cleanRemote.completedQuests) ||
+                            JSON.stringify(merged.dailyCare) !== JSON.stringify(cleanRemote.dailyCare) ||
+                            (merged.users?.nether?.points || 0) > (cleanRemote.users?.nether?.points || 0) ||
+                            (merged.users?.Pooja?.points || 0) > (cleanRemote.users?.Pooja?.points || 0) ||
+                            (!cleanRemote.cat && merged.cat)
+                        );
 
                         merged.meta.isDefaultSeed = false;
                         merged.meta.lastUpdated = new Date().toISOString();
@@ -1107,6 +1276,10 @@ class AppStorage {
                         } catch (e) {}
 
                         this.notifyListeners(merged);
+
+                        if (localHadNewData) {
+                            this.syncToFirebase(merged);
+                        }
                     } else {
                         // First-time sync: initialize remote shared document from local state
                         this.hasReceivedInitialRemoteSync = true;
@@ -1123,16 +1296,22 @@ class AppStorage {
 
     syncToFirebase(data) {
         if (!this.db || !this.isFirebaseConnected) return;
-        // Guard: Prevent newly opened device from writing initial blank seed over remote cloud data
-        if (!this.hasReceivedInitialRemoteSync && data.meta && data.meta.isDefaultSeed) {
+        // Critical Guard: Prevent newly opened device from writing stale local data over cloud before initial remote sync!
+        if (!this.hasReceivedInitialRemoteSync) {
             return;
         }
-        try {
-            this.db.collection('couples').doc('active_couple_v5').set(data, { merge: true })
-                .catch(err => console.warn('Firestore write error:', err));
-        } catch (e) {
-            console.warn('Firestore sync error:', e);
+        // Trailing debounce (300ms) prevents race condition and clobbering from rapid multi-device updates
+        if (this._syncDebounceTimer) {
+            clearTimeout(this._syncDebounceTimer);
         }
+        this._syncDebounceTimer = setTimeout(() => {
+            try {
+                this.db.collection('couples').doc('active_couple_v5').set(data, { merge: true })
+                    .catch(err => console.warn('Firestore write error:', err));
+            } catch (e) {
+                console.warn('Firestore sync error:', e);
+            }
+        }, 300);
     }
 
     // Dual-Confirmation Factory Reset

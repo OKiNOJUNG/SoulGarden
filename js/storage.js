@@ -162,6 +162,7 @@ class AppStorage {
             },
             mealHistory: [],      // Stored archives of meals per person
             notes: [],
+            deletedNoteIds: [],
             calendarMoods: {},
             chatMessages: [],
             quizzes: [],      // Today's active question (max 1/day)
@@ -299,6 +300,26 @@ class AppStorage {
                 data.cat.growthDay = data.cat.growthDay || 1;
                 needsSave = true;
             }
+
+            // Ensure complete bondingScores schema
+            if (!data.cat.bondingScores || typeof data.cat.bondingScores !== 'object') {
+                data.cat.bondingScores = { nether: {}, Pooja: {} };
+                needsSave = true;
+            }
+            ['nether', 'Pooja'].forEach(p => {
+                if (!data.cat.bondingScores[p] || typeof data.cat.bondingScores[p] !== 'object') {
+                    data.cat.bondingScores[p] = { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 };
+                    needsSave = true;
+                } else {
+                    const keys = ['food', 'treats', 'vaccine', 'grooming', 'health', 'hands', 'feather', 'yarn', 'laser', 'toys', 'playTime', 'total'];
+                    keys.forEach(k => {
+                        if (typeof data.cat.bondingScores[p][k] !== 'number') {
+                            data.cat.bondingScores[p][k] = 0;
+                            needsSave = true;
+                        }
+                    });
+                }
+            });
         }
 
         if (!data.meals) {
@@ -321,24 +342,37 @@ class AppStorage {
         }
 
         if (!data.notes || !Array.isArray(data.notes)) { data.notes = []; needsSave = true; }
-        // Auto-heal couple notes: preserve note_1792467659397
+        if (!data.deletedNoteIds || !Array.isArray(data.deletedNoteIds)) { data.deletedNoteIds = []; needsSave = true; }
+
+        // Filter out any note that was marked deleted
+        if (data.deletedNoteIds.length > 0) {
+            const prevLen = data.notes.length;
+            data.notes = data.notes.filter(n => n && n.id && !data.deletedNoteIds.includes(n.id));
+            if (data.notes.length !== prevLen) needsSave = true;
+        }
+
+        // Auto-heal default note ONLY IF brand-new database and never deleted
         const coupleReminderNoteId = 'note_1792467659397';
-        if (!data.notes.some(n => n.id === coupleReminderNoteId)) {
+        if (!data.notes.some(n => n.id === coupleReminderNoteId) && !data.deletedNoteIds.includes(coupleReminderNoteId)) {
             let restored = false;
             try {
                 const bRaw = localStorage.getItem('lovetree_couple_data_backup');
                 if (bRaw) {
                     const bObj = JSON.parse(bRaw);
-                    const bNote = bObj.notes?.find(n => n.id === coupleReminderNoteId);
-                    if (bNote) {
-                        data.notes.unshift(bNote);
-                        restored = true;
-                        needsSave = true;
+                    if (bObj.deletedNoteIds && bObj.deletedNoteIds.includes(coupleReminderNoteId)) {
+                        restored = true; // explicitly deleted, do NOT restore!
+                    } else {
+                        const bNote = bObj.notes?.find(n => n.id === coupleReminderNoteId);
+                        if (bNote) {
+                            data.notes.unshift(bNote);
+                            restored = true;
+                            needsSave = true;
+                        }
                     }
                 }
             } catch (e) {}
 
-            if (!restored) {
+            if (!restored && data.notes.length === 0 && (!data.meta || data.meta.isDefaultSeed)) {
                 data.notes.unshift({
                     id: coupleReminderNoteId,
                     title: 'เตือนลงทะเบียน',
@@ -446,6 +480,7 @@ class AppStorage {
     }
 
     saveLocalData(data) {
+        if (!data) return;
         if (!data.meta) data.meta = {};
         data.meta.lastUpdated = new Date().toISOString();
         data.meta.isDefaultSeed = false;
@@ -453,17 +488,29 @@ class AppStorage {
             data.cat.lastStatsDecayAt = Date.now();
         }
         const jsonStr = JSON.stringify(data);
-        localStorage.setItem(this.storageKey, jsonStr);
         try {
+            localStorage.setItem(this.storageKey, jsonStr);
             localStorage.setItem('lovetree_couple_data_backup', jsonStr);
             sessionStorage.setItem('lovetree_couple_data_backup', jsonStr);
-        } catch (e) {}
-
-        if (this.broadcastChannel) {
-            this.broadcastChannel.postMessage({ type: 'DATA_UPDATED' });
+        } catch (e) {
+            console.warn('Storage save warning:', e);
         }
 
-        this.notifyListeners(data);
+        if (this.broadcastChannel) {
+            try {
+                this.broadcastChannel.postMessage({ type: 'DATA_UPDATED' });
+            } catch (e) {}
+        }
+
+        // Prevent recursive / re-entrant notification loops
+        if (!this._isNotifying) {
+            this._isNotifying = true;
+            try {
+                this.notifyListeners(data);
+            } finally {
+                this._isNotifying = false;
+            }
+        }
 
         if (this.isFirebaseConnected && this.db) {
             this.syncToFirebase(data);
@@ -499,8 +546,8 @@ class AppStorage {
             totalTreated: 0,
             playTime: { nether: 0, Pooja: 0 },
             bondingScores: {
-                nether: { food: 0, treats: 0, toys: 0, vaccine: 0, grooming: 0, play: 0, total: 0 },
-                Pooja: { food: 0, treats: 0, toys: 0, vaccine: 0, grooming: 0, play: 0, total: 0 }
+                nether: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 },
+                Pooja: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 }
             },
             harvestsThisMonth: 0,
             lastHarvestMonth: '',
@@ -769,8 +816,8 @@ class AppStorage {
         // Reset cat bonding scores & play time
         if (data.cat) {
             data.cat.bondingScores = {
-                nether: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0, vaccine: 0, grooming: 0, play: 0, total: 0 },
-                Pooja: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0, vaccine: 0, grooming: 0, play: 0, total: 0 }
+                nether: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 },
+                Pooja: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 }
             };
             data.cat.playTime = { nether: 0, Pooja: 0 };
         }
@@ -842,16 +889,23 @@ class AppStorage {
         };
 
         if (this.broadcastChannel) {
-            this.broadcastChannel.postMessage({
-                type: 'PARTNER_NOTIFICATION',
-                payload: enrichedPayload
-            });
+            try {
+                this.broadcastChannel.postMessage({
+                    type: 'PARTNER_NOTIFICATION',
+                    payload: enrichedPayload
+                });
+            } catch (e) {}
         }
 
-        // Store lastNotification on local document
-        const data = this.getLocalData();
-        data.lastNotification = enrichedPayload;
-        this.saveLocalData(data);
+        // Store lastNotification on local document directly without triggering redundant save cascades
+        try {
+            const raw = localStorage.getItem(this.storageKey);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                parsed.lastNotification = enrichedPayload;
+                localStorage.setItem(this.storageKey, JSON.stringify(parsed));
+            }
+        } catch (e) {}
 
         // Immediate Firestore sync to push real-time notification to partner across all browsers
         if (this.isFirebaseConnected && this.db) {
@@ -987,13 +1041,22 @@ class AppStorage {
                         const merged = { ...cleanRemote };
                         if (!merged.meta) merged.meta = {};
 
-                        // 1. Smart merge notes
+                        // 1. Smart merge notes & deletedNoteIds
+                        const remoteDeletedNotes = Array.isArray(cleanRemote.deletedNoteIds) ? cleanRemote.deletedNoteIds : [];
+                        const localDeletedNotes = Array.isArray(local.deletedNoteIds) ? local.deletedNoteIds : [];
+                        const deletedNotesSet = new Set([...remoteDeletedNotes, ...localDeletedNotes]);
+                        merged.deletedNoteIds = Array.from(deletedNotesSet);
+
                         const remoteNotes = (cleanRemote.notes && Array.isArray(cleanRemote.notes)) ? cleanRemote.notes : [];
                         const localNotes = (local && Array.isArray(local.notes)) ? local.notes : [];
                         const notesMap = new Map();
-                        remoteNotes.forEach(rn => { if (rn && rn.id) notesMap.set(rn.id, rn); });
+                        remoteNotes.forEach(rn => {
+                            if (rn && rn.id && !deletedNotesSet.has(rn.id)) {
+                                notesMap.set(rn.id, rn);
+                            }
+                        });
                         localNotes.forEach(ln => {
-                            if (!ln || !ln.id) return;
+                            if (!ln || !ln.id || deletedNotesSet.has(ln.id)) return;
                             const rn = notesMap.get(ln.id);
                             if (!rn) {
                                 notesMap.set(ln.id, ln);
@@ -1135,19 +1198,29 @@ class AppStorage {
                                     nether: {
                                         food: Math.max(rCat.bondingScores?.nether?.food || 0, lCat.bondingScores?.nether?.food || 0),
                                         treats: Math.max(rCat.bondingScores?.nether?.treats || 0, lCat.bondingScores?.nether?.treats || 0),
-                                        toys: Math.max(rCat.bondingScores?.nether?.toys || 0, lCat.bondingScores?.nether?.toys || 0),
                                         vaccine: Math.max(rCat.bondingScores?.nether?.vaccine || 0, lCat.bondingScores?.nether?.vaccine || 0),
                                         grooming: Math.max(rCat.bondingScores?.nether?.grooming || 0, lCat.bondingScores?.nether?.grooming || 0),
-                                        play: Math.max(rCat.bondingScores?.nether?.play || 0, lCat.bondingScores?.nether?.play || 0),
+                                        health: Math.max(rCat.bondingScores?.nether?.health || 0, lCat.bondingScores?.nether?.health || 0),
+                                        hands: Math.max(rCat.bondingScores?.nether?.hands || 0, lCat.bondingScores?.nether?.hands || 0),
+                                        feather: Math.max(rCat.bondingScores?.nether?.feather || 0, lCat.bondingScores?.nether?.feather || 0),
+                                        yarn: Math.max(rCat.bondingScores?.nether?.yarn || 0, lCat.bondingScores?.nether?.yarn || 0),
+                                        laser: Math.max(rCat.bondingScores?.nether?.laser || 0, lCat.bondingScores?.nether?.laser || 0),
+                                        toys: Math.max(rCat.bondingScores?.nether?.toys || 0, lCat.bondingScores?.nether?.toys || 0),
+                                        playTime: Math.max(rCat.bondingScores?.nether?.playTime || 0, lCat.bondingScores?.nether?.playTime || 0),
                                         total: Math.max(rCat.bondingScores?.nether?.total || 0, lCat.bondingScores?.nether?.total || 0)
                                     },
                                     Pooja: {
                                         food: Math.max(rCat.bondingScores?.Pooja?.food || 0, lCat.bondingScores?.Pooja?.food || 0),
                                         treats: Math.max(rCat.bondingScores?.Pooja?.treats || 0, lCat.bondingScores?.Pooja?.treats || 0),
-                                        toys: Math.max(rCat.bondingScores?.Pooja?.toys || 0, lCat.bondingScores?.Pooja?.toys || 0),
                                         vaccine: Math.max(rCat.bondingScores?.Pooja?.vaccine || 0, lCat.bondingScores?.Pooja?.vaccine || 0),
                                         grooming: Math.max(rCat.bondingScores?.Pooja?.grooming || 0, lCat.bondingScores?.Pooja?.grooming || 0),
-                                        play: Math.max(rCat.bondingScores?.Pooja?.play || 0, lCat.bondingScores?.Pooja?.play || 0),
+                                        health: Math.max(rCat.bondingScores?.Pooja?.health || 0, lCat.bondingScores?.Pooja?.health || 0),
+                                        hands: Math.max(rCat.bondingScores?.Pooja?.hands || 0, lCat.bondingScores?.Pooja?.hands || 0),
+                                        feather: Math.max(rCat.bondingScores?.Pooja?.feather || 0, lCat.bondingScores?.Pooja?.feather || 0),
+                                        yarn: Math.max(rCat.bondingScores?.Pooja?.yarn || 0, lCat.bondingScores?.Pooja?.yarn || 0),
+                                        laser: Math.max(rCat.bondingScores?.Pooja?.laser || 0, lCat.bondingScores?.Pooja?.laser || 0),
+                                        toys: Math.max(rCat.bondingScores?.Pooja?.toys || 0, lCat.bondingScores?.Pooja?.toys || 0),
+                                        playTime: Math.max(rCat.bondingScores?.Pooja?.playTime || 0, lCat.bondingScores?.Pooja?.playTime || 0),
                                         total: Math.max(rCat.bondingScores?.Pooja?.total || 0, lCat.bondingScores?.Pooja?.total || 0)
                                     }
                                 }

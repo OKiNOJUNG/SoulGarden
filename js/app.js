@@ -405,6 +405,7 @@ class AppController {
         } else {
             const lastNotesTime = times['view-notes'] || 0;
             notesCount = (data.notes || []).filter(n => 
+                n && n.id && (!data.deletedNoteIds || !data.deletedNoteIds.includes(n.id)) &&
                 (n.updatedBy === partnerId || n.author === partnerId) && 
                 new Date(n.updatedAt || n.createdAt).getTime() > lastNotesTime
             ).length;
@@ -812,6 +813,7 @@ class AppController {
             const userCare = data.dailyCare && data.dailyCare[todayStr] && data.dailyCare[todayStr][this.currentUser];
             const hasNoteAction = !!(userCare && userCare.noteAction);
             const hasNoteToday = !!(data.notes && data.notes.some(n => 
+                n && n.id && (!data.deletedNoteIds || !data.deletedNoteIds.includes(n.id)) &&
                 (n.author === this.currentUser || n.updatedBy === this.currentUser) && 
                 ((n.createdAt && n.createdAt.startsWith(todayStr)) || (n.updatedAt && n.updatedAt.startsWith(todayStr)))
             ));
@@ -970,9 +972,7 @@ class AppController {
                     snacks: []
                 }
             };
-            window.appStorage.saveLocalData(data);
         } else {
-            let neededSave = false;
             ['nether', 'Pooja'].forEach(p => {
                 if (!data.meals[todayStr][p]) {
                     data.meals[todayStr][p] = {
@@ -981,21 +981,17 @@ class AppController {
                         dinner: { eaten: false, time: '', name: '' },
                         snacks: []
                     };
-                    neededSave = true;
                 } else {
                     ['breakfast', 'lunch', 'dinner'].forEach(mKey => {
                         if (!data.meals[todayStr][p][mKey]) {
                             data.meals[todayStr][p][mKey] = { eaten: false, time: '', name: '' };
-                            neededSave = true;
                         }
                     });
                     if (!data.meals[todayStr][p].snacks) {
                         data.meals[todayStr][p].snacks = [];
-                        neededSave = true;
                     }
                 }
             });
-            if (neededSave) window.appStorage.saveLocalData(data);
         }
 
         const dayMeals = data.meals[todayStr][this.currentMealPartner];
@@ -1082,37 +1078,61 @@ class AppController {
     renderNotesView() {
         const data = window.appStorage.getLocalData();
         const container = document.getElementById('notesGridContainer');
+        if (!container) return;
         container.innerHTML = '';
 
-        if (!data.notes || data.notes.length === 0) {
+        const activeNotes = (data.notes || []).filter(n => {
+            return n && n.id && (!data.deletedNoteIds || !data.deletedNoteIds.includes(n.id));
+        });
+
+        if (activeNotes.length === 0) {
             container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 25px;">ยังไม่มีโน้ตเตือนกัน กดเขียนใหม่ด้านบนได้เลย!</div>`;
             return;
         }
 
-        data.notes.forEach(note => {
+        activeNotes.forEach(note => {
             const card = document.createElement('div');
             card.className = 'note-card';
 
+            const authorName = (data.users && data.users[note.updatedBy]) ? data.users[note.updatedBy].name : (note.updatedBy || 'คนรัก');
+
             card.innerHTML = `
                 <div class="note-top">
-                    <span class="note-title">${note.title}</span>
-                    <span class="note-tag">${note.category}</span>
+                    <span class="note-title">${note.title || 'ไม่มีหัวข้อ'}</span>
+                    <span class="note-tag">${note.category || 'reminder'}</span>
                 </div>
-                <div class="note-body">${note.content}</div>
+                <div class="note-body">${note.content || ''}</div>
                 <div class="note-footer">
-                    <span>อัปเดตโดย ${note.updatedBy}</span>
+                    <span>อัปเดตโดย ${authorName}</span>
                     <div class="note-crud-actions">
-                        <button class="note-crud-btn edit-note-btn" title="แก้ไขโน้ต"><i data-lucide="edit-3" style="width: 14px; height: 14px;"></i></button>
-                        <button class="note-crud-btn del delete-note-btn" title="ลบโน้ต"><i data-lucide="trash-2" style="width: 14px; height: 14px;"></i></button>
+                        <button type="button" class="note-crud-btn edit-note-btn" title="แก้ไขโน้ต"><i data-lucide="edit-3" style="width: 14px; height: 14px;"></i></button>
+                        <button type="button" class="note-crud-btn del delete-note-btn" title="ลบโน้ต"><i data-lucide="trash-2" style="width: 14px; height: 14px;"></i></button>
                     </div>
                 </div>
             `;
 
-            card.querySelector('.edit-note-btn').addEventListener('click', () => this.openEditNoteModal(note));
-            card.querySelector('.delete-note-btn').addEventListener('click', () => this.deleteNote(note.id));
+            const editBtn = card.querySelector('.edit-note-btn');
+            if (editBtn) {
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this.openEditNoteModal(note);
+                });
+            }
+
+            const delBtn = card.querySelector('.delete-note-btn');
+            if (delBtn) {
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this.deleteNote(note.id);
+                });
+            }
 
             container.appendChild(card);
         });
+
+        if (window.lucide) window.lucide.createIcons();
     }
 
     // Bedtime Mood with Time Gating (Locked before 18:00)
@@ -2079,9 +2099,21 @@ class AppController {
         if (!data.dailyCare[todayStr][this.currentUser]) data.dailyCare[todayStr][this.currentUser] = { food: 0, treats: 0, health: 0, playTime: 0 };
         data.dailyCare[todayStr][this.currentUser].health = (data.dailyCare[todayStr][this.currentUser].health || 0) + 1;
 
-        if (data.cat.bondingScores && data.cat.bondingScores[this.currentUser]) {
-            data.cat.bondingScores[this.currentUser].health = (data.cat.bondingScores[this.currentUser].health || 0) + 1;
+        if (!data.cat.bondingScores) {
+            data.cat.bondingScores = {
+                nether: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 },
+                Pooja: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 }
+            };
         }
+        if (!data.cat.bondingScores[this.currentUser]) {
+            data.cat.bondingScores[this.currentUser] = { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 };
+        }
+        if (isVaccine) {
+            data.cat.bondingScores[this.currentUser].vaccine = (data.cat.bondingScores[this.currentUser].vaccine || 0) + 1;
+        } else {
+            data.cat.bondingScores[this.currentUser].grooming = (data.cat.bondingScores[this.currentUser].grooming || 0) + 1;
+        }
+        data.cat.bondingScores[this.currentUser].health = (data.cat.bondingScores[this.currentUser].health || 0) + 1;
 
         window.appStorage.saveLocalData(data);
         window.appStorage.logActivity(this.currentUser, me.name, isVaccine ? 'พาไปฉีดวัคซีน 💉' : 'ตัดขนและตัดเล็บ ✂️', isVaccine ? 'รักษาไข้หวัด สุขภาพกลับมาเต็ม 100%' : 'ตัดเล็บแหลมและแปรงขนเรียบร้อย');
@@ -2329,10 +2361,16 @@ class AppController {
     saveNote(noteId, title, content, category, remindAt) {
         const data = window.appStorage.getLocalData();
         const todayStr = new Date().toISOString().split('T')[0];
-        const me = data.users[this.currentUser];
+        const me = data.users ? data.users[this.currentUser] : null;
+
+        if (!data.notes) data.notes = [];
+        if (!data.deletedNoteIds) data.deletedNoteIds = [];
+        if (noteId && data.deletedNoteIds.includes(noteId)) {
+            data.deletedNoteIds = data.deletedNoteIds.filter(id => id !== noteId);
+        }
 
         if (noteId) {
-            const note = data.notes.find(n => n.id === noteId);
+            const note = data.notes.find(n => n && n.id === noteId);
             if (note) {
                 note.title = title;
                 note.content = content;
@@ -2414,20 +2452,21 @@ class AppController {
     }
 
     deleteNote(noteId) {
-        Swal.fire({
-            title: 'ลบโน้ตนี้? 🗑️',
-            text: 'ต้องการลบโน้ตเตือนความจำนี้หรือไม่?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'ลบทันที',
-            cancelButtonText: 'ยกเลิก'
-        }).then((res) => {
-            if (res.isConfirmed) {
+        if (!noteId) return;
+
+        const executeDelete = () => {
+            try {
                 const data = window.appStorage.getLocalData();
-                const noteToDelete = data.notes.find(n => n.id === noteId);
+                const noteToDelete = (data.notes || []).find(n => n.id === noteId);
                 const titleToDelete = noteToDelete ? noteToDelete.title : 'โน้ตคู่';
-                data.notes = data.notes.filter(n => n.id !== noteId);
-                const me = data.users[this.currentUser];
+
+                if (!data.deletedNoteIds) data.deletedNoteIds = [];
+                if (!data.deletedNoteIds.includes(noteId)) {
+                    data.deletedNoteIds.push(noteId);
+                }
+                data.notes = (data.notes || []).filter(n => n && n.id !== noteId);
+
+                const me = data.users ? data.users[this.currentUser] : null;
 
                 if (!data.activityLogs) data.activityLogs = [];
                 data.activityLogs.unshift({
@@ -2453,8 +2492,34 @@ class AppController {
 
                 this.renderNotesView();
                 this.showToast('ลบโน้ตเรียบร้อยแล้ว');
+            } catch (err) {
+                console.error('deleteNote error:', err);
+                this.showToast('เกิดข้อผิดพลาดในการลบโน้ต');
             }
-        });
+        };
+
+        if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+            Swal.fire({
+                title: 'ลบโน้ตนี้? 🗑️',
+                text: 'ต้องการลบโน้ตเตือนความจำนี้หรือไม่?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'ลบทันที',
+                cancelButtonText: 'ยกเลิก'
+            }).then((res) => {
+                if (res.isConfirmed) {
+                    executeDelete();
+                }
+            }).catch(() => {
+                if (confirm('ต้องการลบโน้ตเตือนความจำนี้หรือไม่?')) {
+                    executeDelete();
+                }
+            });
+        } else {
+            if (confirm('ต้องการลบโน้ตเตือนความจำนี้หรือไม่?')) {
+                executeDelete();
+            }
+        }
     }
 
     // 8. Bedtime Mood Record (Time Gated >= 18:00)
@@ -3679,14 +3744,15 @@ class AppController {
 
         if (!data.cat.bondingScores) {
             data.cat.bondingScores = {
-                nether: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 },
-                Pooja: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 }
+                nether: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 },
+                Pooja: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 }
             };
         }
         if (!data.cat.bondingScores[this.currentUser]) {
-            data.cat.bondingScores[this.currentUser] = { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 };
+            data.cat.bondingScores[this.currentUser] = { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 };
         }
-        data.cat.bondingScores[this.currentUser].playTime += 60;
+        data.cat.bondingScores[this.currentUser].hands = (data.cat.bondingScores[this.currentUser].hands || 0) + 1;
+        data.cat.bondingScores[this.currentUser].playTime = (data.cat.bondingScores[this.currentUser].playTime || 0) + 60;
 
         const today = new Date().toISOString().split('T')[0];
         if (!data.dailyCare) data.dailyCare = {};
@@ -3833,18 +3899,25 @@ class AppController {
 
         if (!data.cat.bondingScores) {
             data.cat.bondingScores = {
-                nether: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 },
-                Pooja: { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 }
+                nether: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 },
+                Pooja: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 }
             };
         }
         if (!data.cat.bondingScores[this.currentUser]) {
-            data.cat.bondingScores[this.currentUser] = { food: 0, treats: 0, toys: 0, health: 0, playTime: 0 };
+            data.cat.bondingScores[this.currentUser] = { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 };
         }
-        data.cat.bondingScores[this.currentUser].playTime += duration;
+        data.cat.bondingScores[this.currentUser].playTime = (data.cat.bondingScores[this.currentUser].playTime || 0) + duration;
 
         if (this.activePlayToy && this.activePlayToy !== 'hands') {
             if (data.toyInventory && data.toyInventory[this.activePlayToy] > 0) {
                 data.toyInventory[this.activePlayToy]--;
+            }
+            if (this.activePlayToy === 'cat_toy_feather') {
+                data.cat.bondingScores[this.currentUser].feather = (data.cat.bondingScores[this.currentUser].feather || 0) + 1;
+            } else if (this.activePlayToy === 'cat_toy_yarn') {
+                data.cat.bondingScores[this.currentUser].yarn = (data.cat.bondingScores[this.currentUser].yarn || 0) + 1;
+            } else if (this.activePlayToy === 'cat_toy_laser') {
+                data.cat.bondingScores[this.currentUser].laser = (data.cat.bondingScores[this.currentUser].laser || 0) + 1;
             }
             data.cat.bondingScores[this.currentUser].toys = (data.cat.bondingScores[this.currentUser].toys || 0) + 1;
         }
@@ -3908,28 +3981,73 @@ class AppController {
         }
 
         const scores = data.cat.bondingScores || {};
-        const nether = scores.nether || { food: 0, treats: 0, toys: 0, health: 0, playTime: 0, vaccine: 0, grooming: 0, play: 0 };
-        const pooja = scores.Pooja || { food: 0, treats: 0, toys: 0, health: 0, playTime: 0, vaccine: 0, grooming: 0, play: 0 };
+        const nether = scores.nether || {};
+        const pooja = scores.Pooja || {};
 
         const getNum = (val) => {
             const num = Number(val);
             return (!isNaN(num) && num > 0) ? num : 0;
         };
 
+        // 1. อาหารและโภชนาการ
         const netherFood = getNum(nether.food);
-        const netherTreats = getNum(nether.treats);
-        const netherToys = getNum(nether.toys);
-        const netherHealth = getNum(nether.health) + getNum(nether.vaccine) + getNum(nether.grooming);
-        const netherPlayMin = Math.floor(getNum(nether.playTime || nether.play) / 60);
-
         const poojaFood = getNum(pooja.food);
+        const netherTreats = getNum(nether.treats);
         const poojaTreats = getNum(pooja.treats);
-        const poojaToys = getNum(pooja.toys);
-        const poojaHealth = getNum(pooja.health) + getNum(pooja.vaccine) + getNum(pooja.grooming);
+
+        // 2. การดูแลสุขภาพและสุขอนามัย
+        const netherVaccine = getNum(nether.vaccine);
+        const poojaVaccine = getNum(pooja.vaccine);
+        const netherGrooming = getNum(nether.grooming);
+        const poojaGrooming = getNum(pooja.grooming);
+        // Fallback for legacy health score if existing
+        const netherLegacyHealth = Math.max(0, getNum(nether.health) - (netherVaccine + netherGrooming));
+        const poojaLegacyHealth = Math.max(0, getNum(pooja.health) - (poojaVaccine + poojaGrooming));
+
+        // 3. กิจกรรมการเล่นแบบต่างๆ
+        const netherHands = getNum(nether.hands);
+        const poojaHands = getNum(pooja.hands);
+        const netherFeather = getNum(nether.feather);
+        const poojaFeather = getNum(pooja.feather);
+        const netherYarn = getNum(nether.yarn);
+        const poojaYarn = getNum(pooja.yarn);
+        const netherLaser = getNum(nether.laser);
+        const poojaLaser = getNum(pooja.laser);
+
+        // Fallback for legacy generic toys if existing
+        const netherSpecificToys = netherFeather + netherYarn + netherLaser;
+        const poojaSpecificToys = poojaFeather + poojaYarn + poojaLaser;
+        const netherLegacyToys = Math.max(0, getNum(nether.toys) - netherSpecificToys);
+        const poojaLegacyToys = Math.max(0, getNum(pooja.toys) - poojaSpecificToys);
+
+        // 4. เวลาเล่นรวม (นาที)
+        const netherPlayMin = Math.floor(getNum(nether.playTime || nether.play) / 60);
         const poojaPlayMin = Math.floor(getNum(pooja.playTime || pooja.play) / 60);
 
-        const netherTotal = (netherFood * 10) + (netherTreats * 15) + (netherToys * 20) + (netherHealth * 25) + (netherPlayMin * 10);
-        const poojaTotal = (poojaFood * 10) + (poojaTreats * 15) + (poojaToys * 20) + (poojaHealth * 25) + (poojaPlayMin * 10);
+        // คำนวณคะแนนรวมทั้งหมด
+        const netherTotal = (netherFood * 10) +
+                            (netherTreats * 15) +
+                            (netherVaccine * 25) +
+                            (netherGrooming * 20) +
+                            (netherLegacyHealth * 25) +
+                            (netherHands * 15) +
+                            (netherFeather * 20) +
+                            (netherYarn * 20) +
+                            (netherLaser * 25) +
+                            (netherLegacyToys * 20) +
+                            (netherPlayMin * 10);
+
+        const poojaTotal = (poojaFood * 10) +
+                           (poojaTreats * 15) +
+                           (poojaVaccine * 25) +
+                           (poojaGrooming * 20) +
+                           (poojaLegacyHealth * 25) +
+                           (poojaHands * 15) +
+                           (poojaFeather * 20) +
+                           (poojaYarn * 20) +
+                           (poojaLaser * 25) +
+                           (poojaLegacyToys * 20) +
+                           (poojaPlayMin * 10);
 
         const winnerEl = document.getElementById('monthlyWinnerName');
         const winnerSub = document.getElementById('monthlyWinnerSubtext');
@@ -3961,38 +4079,88 @@ class AppController {
                 <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; text-align: left; background: #fff; border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm);">
                     <thead>
                         <tr style="background: #FFF8E1; border-bottom: 1.5px solid #FFE082;">
-                            <th style="padding: 8px 10px; font-weight: 800; color: #5D4037;">กิจกรรมการดูแล</th>
+                            <th style="padding: 8px 10px; font-weight: 800; color: #5D4037;">กิจกรรมการดูแล & การเล่น</th>
                             <th style="padding: 8px 10px; font-weight: 800; color: #1976D2; text-align: center;">Nether 👨‍💻</th>
                             <th style="padding: 8px 10px; font-weight: 800; color: #C2185B; text-align: center;">Pooja 🌸</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr style="border-bottom: 1px solid var(--border-light);">
-                            <td style="padding: 7px 10px;">🐟 ให้อาหารหลัก (+10/มื้อ)</td>
-                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${netherFood} มื้อ</td>
-                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${poojaFood} มื้อ</td>
+                        <!-- หมวด 1: อาหารและโภชนาการ -->
+                        <tr style="background: #FFFDE7; font-weight: 700; color: #8D6E63; font-size: 11px;">
+                            <td colspan="3" style="padding: 5px 10px;">🍽️ อาหารและโภชนาการ</td>
                         </tr>
                         <tr style="border-bottom: 1px solid var(--border-light);">
-                            <td style="padding: 7px 10px;">💖 ขนมแมวเลีย (+15/ซอง)</td>
-                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${netherTreats} ซอง</td>
-                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${poojaTreats} ซอง</td>
+                            <td style="padding: 6px 10px;">🐟 ให้อาหารหลัก (+10/มื้อ)</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${netherFood} มื้อ</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${poojaFood} มื้อ</td>
                         </tr>
                         <tr style="border-bottom: 1px solid var(--border-light);">
-                            <td style="padding: 7px 10px;">🧶 ของเล่นแมว (+20/ครั้ง)</td>
-                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${netherToys} ครั้ง</td>
-                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${poojaToys} ครั้ง</td>
+                            <td style="padding: 6px 10px;">💖 ขนมแมวเลีย (+15/ซอง)</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${netherTreats} ซอง</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${poojaTreats} ซอง</td>
+                        </tr>
+
+                        <!-- หมวด 2: การดูแลสุขภาพและสุขอนามัย -->
+                        <tr style="background: #FFFDE7; font-weight: 700; color: #8D6E63; font-size: 11px;">
+                            <td colspan="3" style="padding: 5px 10px;">🩺 สุขภาพและสุขอนามัย</td>
                         </tr>
                         <tr style="border-bottom: 1px solid var(--border-light);">
-                            <td style="padding: 7px 10px;">💉 ฉีดวัคซีน/สุขภาพ (+25/ครั้ง)</td>
-                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${netherHealth} ครั้ง</td>
-                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${poojaHealth} ครั้ง</td>
+                            <td style="padding: 6px 10px;">💉 ฉีดวัคซีนป้องกันโรค (+25/ครั้ง)</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${netherVaccine} ครั้ง</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${poojaVaccine} ครั้ง</td>
                         </tr>
                         <tr style="border-bottom: 1px solid var(--border-light);">
-                            <td style="padding: 7px 10px;">⏱️ เวลาเล่นรวม (+10/นาที)</td>
-                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${netherPlayMin} นาที</td>
-                            <td style="padding: 7px 10px; text-align: center; font-weight: 700;">${poojaPlayMin} นาที</td>
+                            <td style="padding: 6px 10px;">✂️ ตัดขนและตัดเล็บ (+20/ครั้ง)</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${netherGrooming} ครั้ง</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${poojaGrooming} ครั้ง</td>
                         </tr>
-                        <tr style="background: #FAFAFA; font-weight: 800; font-size: 12.5px;">
+                        ${(netherLegacyHealth > 0 || poojaLegacyHealth > 0) ? `
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 6px 10px;">🩺 รักษาฟื้นฟูสุขภาพทั่วไป (+25/ครั้ง)</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${netherLegacyHealth} ครั้ง</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${poojaLegacyHealth} ครั้ง</td>
+                        </tr>
+                        ` : ''}
+
+                        <!-- หมวด 3: กิจกรรมการเล่นแบบต่างๆ -->
+                        <tr style="background: #FFFDE7; font-weight: 700; color: #8D6E63; font-size: 11px;">
+                            <td colspan="3" style="padding: 5px 10px;">🎮 กิจกรรมการเล่นและการหยอกล้อ</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 6px 10px;">🖐️ เกาคาง / มือเปล่า (+15/ครั้ง)</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${netherHands} ครั้ง</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${poojaHands} ครั้ง</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 6px 10px;">🪶 ไม้ล่อขนนก (+20/ครั้ง)</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${netherFeather} ครั้ง</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${poojaFeather} ครั้ง</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 6px 10px;">🧶 ไหมพรมกลิ้ง (+20/ครั้ง)</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${netherYarn} ครั้ง</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${poojaYarn} ครั้ง</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 6px 10px;">✨ เลเซอร์ดาว (+25/ครั้ง)</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${netherLaser} ครั้ง</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${poojaLaser} ครั้ง</td>
+                        </tr>
+                        ${(netherLegacyToys > 0 || poojaLegacyToys > 0) ? `
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 6px 10px;">🧸 ของเล่นแมวอื่นๆ (+20/ครั้ง)</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${netherLegacyToys} ครั้ง</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${poojaLegacyToys} ครั้ง</td>
+                        </tr>
+                        ` : ''}
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 6px 10px;">⏱️ เวลาเล่นสะสม (+10/นาที)</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${netherPlayMin} นาที</td>
+                            <td style="padding: 6px 10px; text-align: center; font-weight: 700;">${poojaPlayMin} นาที</td>
+                        </tr>
+
+                        <!-- สรุปคะแนนรวม -->
+                        <tr style="background: #FAFAFA; font-weight: 800; font-size: 12.5px; border-top: 2px solid #FFE082;">
                             <td style="padding: 9px 10px; color: #E65100;">⭐ คะแนนความผูกพันรวม</td>
                             <td style="padding: 9px 10px; text-align: center; color: #1976D2;">${netherTotal} แต้ม</td>
                             <td style="padding: 9px 10px; text-align: center; color: #C2185B;">${poojaTotal} แต้ม</td>

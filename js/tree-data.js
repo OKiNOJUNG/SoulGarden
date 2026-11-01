@@ -424,18 +424,27 @@ const DEFAULT_QUESTS = [
 // ============================================================================
 
 const THAI_LOTTERY_CONSECUTIVE_DRAWS = [
+    { beYear: 2569, yearBE: 2569, date: "1 พ.ย. 2569", prize1: "423224", firstPrize: "423224", last2: "85", front3: "300, 950", first3: "300, 950", back3: "393, 804", last3: "393, 804" },
+    { beYear: 2569, yearBE: 2569, date: "16 ต.ค. 2569", prize1: "011781", firstPrize: "011781", last2: "48", front3: "392, 402", first3: "392, 402", back3: "171, 255", last3: "171, 255" },
+    { beYear: 2569, yearBE: 2569, date: "1 ต.ค. 2569", prize1: "402701", firstPrize: "402701", last2: "70", front3: "791, 912", first3: "791, 912", back3: "058, 396", last3: "058, 396" },
+    { beYear: 2569, yearBE: 2569, date: "16 ก.ย. 2569", prize1: "730640", firstPrize: "730640", last2: "64", front3: "060, 521", first3: "060, 521", back3: "266, 041", last3: "266, 041" },
+    { beYear: 2569, yearBE: 2569, date: "1 ก.ย. 2569", prize1: "417212", firstPrize: "417212", last2: "04", front3: "257, 346", first3: "257, 346", back3: "136, 740", last3: "136, 740" },
+    { beYear: 2569, yearBE: 2569, date: "16 ส.ค. 2569", prize1: "004615", firstPrize: "004615", last2: "53", front3: "731, 429", first3: "731, 429", back3: "937, 094", last3: "937, 094" },
+    { beYear: 2569, yearBE: 2569, date: "1 ส.ค. 2569", prize1: "932479", firstPrize: "932479", last2: "69", front3: "413, 672", first3: "413, 672", back3: "154, 039", last3: "154, 039" },
+    { beYear: 2569, yearBE: 2569, date: "16 ก.ค. 2569", prize1: "639214", firstPrize: "639214", last2: "71", front3: "683, 709", first3: "683, 709", back3: "746, 427", last3: "746, 427" },
+    { beYear: 2569, yearBE: 2569, date: "1 ก.ค. 2569", prize1: "751495", firstPrize: "751495", last2: "62", front3: "001, 980", first3: "001, 980", back3: "304, 531", last3: "304, 531" },
+    { beYear: 2569, yearBE: 2569, date: "16 มิ.ย. 2569", prize1: "287184", firstPrize: "287184", last2: "48", front3: "758, 434", first3: "758, 434", back3: "007, 721", last3: "007, 721" },
+    { beYear: 2569, yearBE: 2569, date: "1 มิ.ย. 2569", prize1: "173770", firstPrize: "173770", last2: "95", front3: "848, 415", first3: "848, 415", back3: "410, 938", last3: "410, 938" },
+    { beYear: 2569, yearBE: 2569, date: "16 พ.ค. 2569", prize1: "107387", firstPrize: "107387", last2: "08", front3: "091, 298", first3: "091, 298", back3: "602, 716", last3: "602, 716" },
+    // งวดปี 2567 เพิ่มเติมเพื่อความครอบคลุม
+    { beYear: 2567, yearBE: 2567, date: "16 ธ.ค. 2567", prize1: "097863", firstPrize: "097863", last2: "21", front3: "290, 742", first3: "290, 742", back3: "339, 881", last3: "339, 881" },
+    { beYear: 2567, yearBE: 2567, date: "1 ธ.ค. 2567", prize1: "669843", firstPrize: "669843", last2: "61", front3: "559, 626", first3: "559, 626", back3: "098, 654", last3: "098, 654" },
+    { beYear: 2567, yearBE: 2567, date: "16 พ.ย. 2567", prize1: "187221", firstPrize: "187221", last2: "38", front3: "036, 923", first3: "036, 923", back3: "547, 980", last3: "547, 980" },
+    { beYear: 2567, yearBE: 2567, date: "1 พ.ย. 2567", prize1: "536044", firstPrize: "536044", last2: "32", front3: "174, 225", first3: "174, 225", back3: "063, 231", last3: "063, 231" },
     { beYear: 2567, yearBE: 2567, date: "16 ต.ค. 2567", prize1: "482962", firstPrize: "482962", last2: "00", front3: "561, 648", first3: "561, 648", back3: "419, 913", last3: "419, 913" },
     { beYear: 2567, yearBE: 2567, date: "1 ต.ค. 2567", prize1: "843652", firstPrize: "843652", last2: "59", front3: "755, 689", first3: "755, 689", back3: "483, 344", last3: "483, 344" },
     { beYear: 2567, yearBE: 2567, date: "16 ก.ย. 2567", prize1: "608662", firstPrize: "608662", last2: "37", front3: "230, 904", first3: "230, 904", back3: "008, 408", last3: "008, 408" },
-    { beYear: 2567, yearBE: 2567, date: "1 ก.ย. 2567", prize1: "199606", firstPrize: "199606", last2: "94", front3: "173, 220", first3: "173, 220", back3: "094, 415", last3: "094, 415" },
-    { beYear: 2567, yearBE: 2567, date: "16 ส.ค. 2567", prize1: "095867", firstPrize: "095867", last2: "28", front3: "724, 834", first3: "724, 834", back3: "347, 508", last3: "347, 508" },
-    { beYear: 2567, yearBE: 2567, date: "1 ส.ค. 2567", prize1: "756519", firstPrize: "756519", last2: "36", front3: "785, 037", first3: "785, 037", back3: "384, 061", last3: "384, 061" },
-    { beYear: 2567, yearBE: 2567, date: "16 ก.ค. 2567", prize1: "367336", firstPrize: "367336", last2: "21", front3: "411, 011", first3: "411, 011", back3: "755, 607", last3: "755, 607" },
-    { beYear: 2567, yearBE: 2567, date: "1 ก.ค. 2567", prize1: "434503", firstPrize: "434503", last2: "89", front3: "839, 977", first3: "839, 977", back3: "647, 778", last3: "647, 778" },
-    { beYear: 2567, yearBE: 2567, date: "16 มิ.ย. 2567", prize1: "518504", firstPrize: "518504", last2: "31", front3: "885, 428", first3: "885, 428", back3: "447, 426", last3: "447, 426" },
-    { beYear: 2567, yearBE: 2567, date: "1 มิ.ย. 2567", prize1: "530593", firstPrize: "530593", last2: "42", front3: "194, 364", first3: "194, 364", back3: "421, 734", last3: "421, 734" },
-    { beYear: 2567, yearBE: 2567, date: "16 พ.ค. 2567", prize1: "205690", firstPrize: "205690", last2: "60", front3: "885, 747", first3: "885, 747", back3: "137, 070", last3: "137, 070" },
-    { beYear: 2567, yearBE: 2567, date: "2 พ.ค. 2567", prize1: "980116", firstPrize: "980116", last2: "17", front3: "104, 763", first3: "104, 763", back3: "833, 634", last3: "833, 634" }
+    { beYear: 2567, yearBE: 2567, date: "1 ก.ย. 2567", prize1: "199606", firstPrize: "199606", last2: "94", front3: "173, 220", first3: "173, 220", back3: "094, 415", last3: "094, 415" }
 ];
 
 const THAI_LOTTERY_10YR_HISTORY = {
@@ -687,6 +696,8 @@ const THAI_LOTTERY_10YR_HISTORY = {
         { beYear: 2558, yearBE: 2558, date: "1 ต.ค. 2558", prize1: "594825", firstPrize: "594825", last2: "07", front3: "175, 775", first3: "175, 775", back3: "444, 980", last3: "444, 980" }
     ],
     "10_16": [
+        { beYear: 2569, yearBE: 2569, date: "16 ต.ค. 2569", prize1: "011781", firstPrize: "011781", last2: "48", front3: "392, 402", first3: "392, 402", back3: "171, 255", last3: "171, 255" },
+        { beYear: 2568, yearBE: 2568, date: "16 ต.ค. 2568", prize1: "059696", firstPrize: "059696", last2: "61", front3: "531, 955", first3: "531, 955", back3: "476, 889", last3: "476, 889" },
         { beYear: 2567, yearBE: 2567, date: "16 ต.ค. 2567", prize1: "482962", firstPrize: "482962", last2: "00", front3: "561, 648", first3: "561, 648", back3: "419, 913", last3: "419, 913" },
         { beYear: 2566, yearBE: 2566, date: "16 ต.ค. 2566", prize1: "931446", firstPrize: "931446", last2: "44", front3: "398, 167", first3: "398, 167", back3: "970, 272", last3: "970, 272" },
         { beYear: 2565, yearBE: 2565, date: "16 ต.ค. 2565", prize1: "613106", firstPrize: "613106", last2: "15", front3: "158, 037", first3: "158, 037", back3: "606, 799", last3: "606, 799" },
@@ -694,13 +705,13 @@ const THAI_LOTTERY_10YR_HISTORY = {
         { beYear: 2563, yearBE: 2563, date: "16 ต.ค. 2563", prize1: "286051", firstPrize: "286051", last2: "38", front3: "189, 464", first3: "189, 464", back3: "045, 980", last3: "045, 980" },
         { beYear: 2562, yearBE: 2562, date: "16 ต.ค. 2562", prize1: "812564", firstPrize: "812564", last2: "15", front3: "255, 625", first3: "255, 625", back3: "598, 132", last3: "598, 132" },
         { beYear: 2561, yearBE: 2561, date: "16 ต.ค. 2561", prize1: "200515", firstPrize: "200515", last2: "93", front3: "186, 921", first3: "186, 921", back3: "212, 492", last3: "212, 492" },
-        { beYear: 2560, yearBE: 2560, date: "16 ต.ค. 2560", prize1: "413494", firstPrize: "413494", last2: "86", front3: "180, 971", first3: "180, 971", back3: "287, 876", last3: "287, 876" },
-        { beYear: 2559, yearBE: 2559, date: "16 ต.ค. 2559", prize1: "571947", firstPrize: "571947", last2: "98", front3: "692, 885", first3: "692, 885", back3: "032, 587", last3: "032, 587" },
-        { beYear: 2558, yearBE: 2558, date: "16 ต.ค. 2558", prize1: "968630", firstPrize: "968630", last2: "62", front3: "454, 669", first3: "454, 669", back3: "413, 912", last3: "413, 912" }
+        { beYear: 2560, yearBE: 2560, date: "16 ต.ค. 2560", prize1: "413494", firstPrize: "413494", last2: "86", front3: "180, 971", first3: "180, 971", back3: "287, 876", last3: "287, 876" }
     ],
 
     // 11. พฤศจิกายน
     "11_1": [
+        { beYear: 2569, yearBE: 2569, date: "1 พ.ย. 2569", prize1: "423224", firstPrize: "423224", last2: "85", front3: "300, 950", first3: "300, 950", back3: "393, 804", last3: "393, 804" },
+        { beYear: 2568, yearBE: 2568, date: "1 พ.ย. 2568", prize1: "345898", firstPrize: "345898", last2: "87", front3: "328, 449", first3: "328, 449", back3: "111, 690", last3: "111, 690" },
         { beYear: 2567, yearBE: 2567, date: "1 พ.ย. 2567", prize1: "536044", firstPrize: "536044", last2: "32", front3: "174, 225", first3: "174, 225", back3: "063, 231", last3: "063, 231" },
         { beYear: 2566, yearBE: 2566, date: "1 พ.ย. 2566", prize1: "743951", firstPrize: "743951", last2: "63", front3: "913, 729", first3: "913, 729", back3: "519, 860", last3: "519, 860" },
         { beYear: 2565, yearBE: 2565, date: "1 พ.ย. 2565", prize1: "913106", firstPrize: "913106", last2: "70", front3: "722, 839", first3: "722, 839", back3: "343, 922", last3: "343, 922" },
@@ -708,9 +719,7 @@ const THAI_LOTTERY_10YR_HISTORY = {
         { beYear: 2563, yearBE: 2563, date: "1 พ.ย. 2563", prize1: "506404", firstPrize: "506404", last2: "40", front3: "154, 598", first3: "154, 598", back3: "245, 062", last3: "245, 062" },
         { beYear: 2562, yearBE: 2562, date: "1 พ.ย. 2562", prize1: "967375", firstPrize: "967375", last2: "79", front3: "923, 905", first3: "923, 905", back3: "206, 021", last3: "206, 021" },
         { beYear: 2561, yearBE: 2561, date: "1 พ.ย. 2561", prize1: "149840", firstPrize: "149840", last2: "58", front3: "384, 576", first3: "384, 576", back3: "509, 046", last3: "509, 046" },
-        { beYear: 2560, yearBE: 2560, date: "1 พ.ย. 2560", prize1: "533726", firstPrize: "533726", last2: "85", front3: "165, 425", first3: "165, 425", back3: "485, 036", last3: "485, 036" },
-        { beYear: 2559, yearBE: 2559, date: "1 พ.ย. 2559", prize1: "785438", firstPrize: "785438", last2: "86", front3: "829, 976", first3: "829, 976", back3: "206, 038", last3: "206, 038" },
-        { beYear: 2558, yearBE: 2558, date: "1 พ.ย. 2558", prize1: "361211", firstPrize: "361211", last2: "92", front3: "757, 106", first3: "757, 106", back3: "166, 473", last3: "166, 473" }
+        { beYear: 2560, yearBE: 2560, date: "1 พ.ย. 2560", prize1: "533726", firstPrize: "533726", last2: "85", front3: "165, 425", first3: "165, 425", back3: "485, 036", last3: "485, 036" }
     ],
     "11_16": [
         { beYear: 2567, yearBE: 2567, date: "16 พ.ย. 2567", prize1: "187221", firstPrize: "187221", last2: "38", front3: "036, 923", first3: "036, 923", back3: "547, 980", last3: "547, 980" },
@@ -837,8 +846,10 @@ function getThaiLotteryHistory(dateOrDay = null, month = null) {
         last3: r.last3 || r.back3 || '-'
     });
 
-    const records = rawRecords.map(normalize);
-    const consecutiveRecords = THAI_LOTTERY_CONSECUTIVE_DRAWS.map(normalize);
+    const records = rawRecords.slice(0, 10).map(normalize);
+    const consecutiveRecords = THAI_LOTTERY_CONSECUTIVE_DRAWS.slice(0, 12).map(normalize);
+    const startYr = records.length > 0 ? records[records.length - 1].beYear : 2560;
+    const endYr = records.length > 0 ? records[0].beYear : 2569;
 
     return {
         key: key,
@@ -846,7 +857,7 @@ function getThaiLotteryHistory(dateOrDay = null, month = null) {
         month: m,
         monthName: monthName,
         drawTitle: drawTitle,
-        yearsRange: '2558 - 2567 (ย้อนหลัง 10 ปี)',
+        yearsRange: `${startYr} - ${endYr} (ย้อนหลัง 10 ปี อ้างอิง lottery.co.th และ glo.or.th)`,
         records: records,
         consecutiveRecords: consecutiveRecords
     };

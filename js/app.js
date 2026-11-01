@@ -3265,6 +3265,9 @@ class AppController {
                         </tbody>
                     </table>
                 </div>
+                <div class="lottery-source-ref-bar" style="padding: 7px 12px; font-size: 11px; color: #555; text-align: center; border-top: 1px solid #eee; background: rgba(255,255,255,0.7); border-radius: 0 0 10px 10px;">
+                    🔗 อ้างอิงสถิติตรวจสอบตรงกัน: <a href="https://www.lottery.co.th/previous" target="_blank" rel="noopener" style="color: #1976D2; font-weight: 700; text-decoration: underline;">lottery.co.th/previous</a> และ <a href="https://www.glo.or.th/mission/awarding/orderby-time" target="_blank" rel="noopener" style="color: #1976D2; font-weight: 700; text-decoration: underline;">glo.or.th</a>
+                </div>
             </div>
 
             <div style="margin-top: 16px;">

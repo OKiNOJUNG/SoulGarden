@@ -129,13 +129,14 @@
                     </div>
 
                     <div class="login-form-card">
-                        <form id="loginForm" autocomplete="off">
+                        <form id="loginForm" autocomplete="off"
+                            onsubmit="event.preventDefault(); if (window.app && window.app.handleLoginSubmit) window.app.handleLoginSubmit(event);">
                             <div class="form-group">
                                 <label class="form-label" for="loginId">บัญชีผู้ใช้ (ID)</label>
                                 <div class="input-icon-wrap">
                                     <i data-lucide="user"></i>
-                                    <input type="text" id="loginId" class="form-input" placeholder="กรอก ID ของคุณ"
-                                        required>
+                                    <input type="text" id="loginId" class="form-input"
+                                        placeholder="กรอก ID ของคุณ (nether หรือ pooja)" required>
                                 </div>
                                 <div class="inline-error" id="idErrorMsg">โปรดระบุบัญชีผู้ใช้</div>
                             </div>

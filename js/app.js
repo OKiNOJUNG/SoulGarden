@@ -37,8 +37,9 @@ class AppController {
 
     checkExistingSession() {
         const savedUserId = sessionStorage.getItem('lovetree_active_user') || localStorage.getItem('lovetree_active_user');
-        if (savedUserId && (savedUserId === 'nether' || savedUserId === 'Pooja')) {
-            this.setLoggedInUser(savedUserId);
+        const normalized = savedUserId ? (savedUserId.toLowerCase() === 'nether' ? 'nether' : (savedUserId.toLowerCase() === 'pooja' ? 'Pooja' : null)) : null;
+        if (normalized) {
+            this.setLoggedInUser(normalized);
         } else {
             this.currentUser = null;
             sessionStorage.removeItem('lovetree_active_user');
@@ -3352,7 +3353,6 @@ class AppController {
             overlay.classList.add('active');
         });
     }
-    }
 
     selectCatBreed(breedId) {
         const data = window.appStorage.getLocalData();
@@ -3513,10 +3513,14 @@ class AppController {
 
     showToast(text, icon = '✨') {
         const toast = document.getElementById('globalToastNotice');
-        document.getElementById('toastIcon').innerText = icon;
-        document.getElementById('toastText').innerText = text;
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2800);
+        const iconEl = document.getElementById('toastIcon');
+        const textEl = document.getElementById('toastText');
+        if (iconEl) iconEl.innerText = icon;
+        if (textEl) textEl.innerText = text;
+        if (toast) {
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2800);
+        }
     }
 
     openModal(modalId) {
@@ -5012,6 +5016,71 @@ class AppController {
         });
     }
 
+    handleLoginSubmit(e) {
+        if (e && e.preventDefault) e.preventDefault();
+
+        const idInput = document.getElementById('loginId');
+        const passInput = document.getElementById('loginPass');
+        const passErr = document.getElementById('passErrorMsg');
+        const idErr = document.getElementById('idErrorMsg');
+
+        if (passErr) passErr.classList.remove('show');
+        if (idErr) idErr.classList.remove('show');
+
+        const rawId = (idInput ? idInput.value : '').trim();
+        const rawPass = (passInput ? passInput.value : '').trim();
+
+        if (!rawId) {
+            if (idErr) {
+                idErr.innerText = 'โปรดระบุบัญชีผู้ใช้ (nether หรือ pooja)';
+                idErr.classList.add('show');
+            }
+            if (idInput) idInput.focus();
+            return false;
+        }
+
+        const idLower = rawId.toLowerCase();
+        const passLower = rawPass.toLowerCase();
+
+        const data = window.appStorage ? window.appStorage.getLocalData() : null;
+        const netherName = data?.users?.nether?.name?.toLowerCase() || 'nether';
+        const poojaName = data?.users?.Pooja?.name?.toLowerCase() || 'pooja';
+
+        const isNether = (idLower === 'nether' || idLower === 'เนเธอร์' || idLower === 'nether28' || idLower === netherName);
+        const isPooja = (idLower === 'pooja' || idLower === 'ปูจา' || idLower === 'poo' || idLower === 'poo_0001' || idLower === poojaName);
+
+        const isNetherPass = (
+            rawPass === 'nether28' ||
+            passLower === 'nether28' ||
+            passLower === 'nether'
+        );
+        const isPoojaPass = (
+            rawPass === 'Poo_0001' ||
+            rawPass === 'poo_0001' ||
+            passLower === 'poo_0001' ||
+            passLower === 'poo0001' ||
+            passLower === 'pooja' ||
+            passLower === 'pooja28'
+        );
+
+        if (isNether && isNetherPass) {
+            if (window.soundManager) window.soundManager.playSuccess();
+            this.setLoggedInUser('nether');
+            return true;
+        } else if (isPooja && isPoojaPass) {
+            if (window.soundManager) window.soundManager.playSuccess();
+            this.setLoggedInUser('Pooja');
+            return true;
+        } else {
+            if (window.soundManager) window.soundManager.playError();
+            if (passErr) {
+                passErr.innerText = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง โปรดตรวจสอบอีกครั้ง';
+                passErr.classList.add('show');
+            }
+            return false;
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Event Bindings
     // -------------------------------------------------------------------------
@@ -5068,29 +5137,14 @@ class AppController {
             return el;
         };
 
-        // Login Form (Case-insensitive user ID check & password validation)
-        safeOn('loginForm', 'submit', (e) => {
-            e.preventDefault();
-            const id = document.getElementById('loginId')?.value?.trim() || '';
-            const pass = document.getElementById('loginPass')?.value?.trim() || '';
-
-            const passErr = document.getElementById('passErrorMsg');
-            if (passErr) passErr.classList.remove('show');
-
-            const idLower = id.toLowerCase();
-            if (idLower === 'nether' && pass === 'nether28') {
-                if (window.soundManager) window.soundManager.playSuccess();
-                this.setLoggedInUser('nether');
-            } else if (idLower === 'pooja' && (pass === 'Poo_0001' || pass === 'poo_0001')) {
-                if (window.soundManager) window.soundManager.playSuccess();
-                this.setLoggedInUser('Pooja');
-            } else {
-                if (window.soundManager) window.soundManager.playError();
-                if (passErr) {
-                    passErr.innerText = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง โปรดตรวจสอบอีกครั้ง';
-                    passErr.classList.add('show');
-                }
+        // Login Form submission
+        safeOn('loginForm', 'submit', (e) => this.handleLoginSubmit(e));
+        safeOn('loginSubmitBtn', 'click', (e) => {
+            const form = document.getElementById('loginForm');
+            if (form && typeof form.checkValidity === 'function' && !form.checkValidity()) {
+                return;
             }
+            this.handleLoginSubmit(e);
         });
 
         // Welcome Manual / Help Button
@@ -5617,6 +5671,14 @@ class AppController {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    window.app = new AppController();
-});
+function initSoulGardenApp() {
+    if (!window.app) {
+        window.app = new AppController();
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSoulGardenApp);
+} else {
+    initSoulGardenApp();
+}

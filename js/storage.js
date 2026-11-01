@@ -56,11 +56,11 @@ class AppStorage {
                                 localStorage.setItem(this.storageKey, raw);
                                 break;
                             }
-                        } catch(e) {}
+                        } catch (e) { }
                     }
                 }
             }
-        } catch(e) {}
+        } catch (e) { }
     }
 
     initBroadcast() {
@@ -71,7 +71,9 @@ class AppStorage {
                 if (event.data.type === 'DATA_UPDATED') {
                     this.notifyListeners(this.getLocalData());
                 } else if (event.data.type === 'PRESENCE_UPDATED') {
-                    this.notifyListeners(this.getLocalData());
+                    if (window.loveTreeApp && typeof window.loveTreeApp.updatePresenceUI === 'function') {
+                        window.loveTreeApp.updatePresenceUI();
+                    }
                 } else if (event.data.type === 'NUDGE_SIGNAL') {
                     if (window.onPartnerNudgeReceived) {
                         window.onPartnerNudgeReceived(event.data.payload);
@@ -320,6 +322,12 @@ class AppStorage {
                     });
                 }
             });
+
+            // Ensure lastHandsPlay 1-hour cooldown state per user
+            if (!data.cat.lastHandsPlay || typeof data.cat.lastHandsPlay !== 'object') {
+                data.cat.lastHandsPlay = { nether: 0, Pooja: 0 };
+                needsSave = true;
+            }
         }
 
         if (!data.meals) {
@@ -370,7 +378,7 @@ class AppStorage {
                         }
                     }
                 }
-            } catch (e) {}
+            } catch (e) { }
 
             if (!restored && data.notes.length === 0 && (!data.meta || data.meta.isDefaultSeed)) {
                 data.notes.unshift({
@@ -395,12 +403,26 @@ class AppStorage {
         if (!data.chatMessages || !Array.isArray(data.chatMessages)) { data.chatMessages = []; needsSave = true; }
         if (!data.quizzes || !Array.isArray(data.quizzes)) { data.quizzes = []; needsSave = true; }
         if (!data.pastQuizzes || !Array.isArray(data.pastQuizzes)) { data.pastQuizzes = []; needsSave = true; }
+        if (!data.luckyOrbClaims || typeof data.luckyOrbClaims !== 'object') { data.luckyOrbClaims = {}; needsSave = true; }
 
-        // Retain today's quiz if missing
-        const todayQuizId = 'quiz_1792548484160';
-        if (!data.quizzes.some(q => q.id === todayQuizId) && !data.pastQuizzes.some(q => q.id === todayQuizId)) {
-            data.quizzes.unshift({
-                id: todayQuizId,
+        // Clean up stale or non-today quizzes from active quizzes into pastQuizzes
+        const todayDateStr = new Date().toISOString().split('T')[0];
+        const expiredQuizzes = data.quizzes.filter(q => q.date && q.date !== todayDateStr);
+        if (expiredQuizzes.length > 0) {
+            expiredQuizzes.forEach(eq => {
+                if (!data.pastQuizzes.some(pq => pq.id === eq.id)) {
+                    data.pastQuizzes.unshift(eq);
+                }
+            });
+            data.quizzes = data.quizzes.filter(q => !q.date || q.date === todayDateStr);
+            needsSave = true;
+        }
+
+        // Retain historical sample quiz in pastQuizzes (not active quizzes)
+        const historicalPoojaQuizId = 'quiz_1792548484160';
+        if (!data.pastQuizzes.some(q => q.id === historicalPoojaQuizId)) {
+            data.pastQuizzes.unshift({
+                id: historicalPoojaQuizId,
                 creator: 'Pooja',
                 creatorName: 'น้องจ๋า 🌸',
                 date: '2026-10-21',
@@ -499,7 +521,7 @@ class AppStorage {
         if (this.broadcastChannel) {
             try {
                 this.broadcastChannel.postMessage({ type: 'DATA_UPDATED' });
-            } catch (e) {}
+            } catch (e) { }
         }
 
         // Prevent recursive / re-entrant notification loops
@@ -533,7 +555,7 @@ class AppStorage {
             isRevealed: false,
             secretBreed: secretBreedId,
             breed: 'mystery_kitten',
-            growthDay: 1, // Track days (2 months = 60 days, 6 months = 180 days)
+            growthDay: 1, // Track days (2 months = 60 days, 1 month = 30 days)
             growthPercent: 5,
             yesterdayGrowthPercent: 5,
             health: 100,
@@ -591,22 +613,61 @@ class AppStorage {
         return breed;
     }
 
-    // Archive Current Cat into Collection after 6 Months (180 Days) with Dual-Party Consent
+    // Archive Current Cat into Collection after 1 Month (30 Days) with Dual-Party Consent
     retireCatToCollection(approvedByUser) {
         const data = this.getLocalData();
-        if (!data.cat) return null;
+        if (!data.cat) return { success: false, message: 'ไม่มีน้องแมวในปัจจุบัน' };
         if (!data.catCollection) data.catCollection = [];
+
+        const catAgeDays = data.cat.growthDay || Math.max(1, Math.floor((Date.now() - (data.cat.adoptedAt || Date.now())) / 86400000));
+        if (catAgeDays < 30) {
+            return {
+                success: false,
+                message: `ต้องเลี้ยงน้องแมวให้เติบโตขั้นต่ำ 1 เดือน (30 วัน) ก่อนนะจ๊ะ (ปัจจุบันอายุ ${catAgeDays} วัน)`
+            };
+        }
+
+        const breedInfo = CAT_BREEDS.find(b => b.id === (data.cat.isRevealed ? data.cat.breed : data.cat.secretBreed)) || CAT_BREEDS[0];
 
         const catToArchive = {
             ...data.cat,
             id: 'coll_cat_' + Date.now(),
             retiredAt: new Date().toISOString(),
-            retiredDay: data.cat.growthDay,
+            retiredDay: catAgeDays,
+            breedName: breedInfo.name,
             finalBreed: data.cat.isRevealed ? data.cat.breed : data.cat.secretBreed
         };
 
         data.catCollection.push(catToArchive);
-        data.cat = null;
+
+        // Auto-adopt new mystery kitten for next journey
+        const realBreeds = CAT_BREEDS.filter(b => b.id !== 'mystery_kitten');
+        const secretBreedId = realBreeds[Math.floor(Math.random() * realBreeds.length)].id;
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        data.cat = {
+            name: 'น้องเหมียวปริศนา',
+            isRevealed: false,
+            secretBreed: secretBreedId,
+            breed: 'mystery_kitten',
+            growthDay: 1,
+            growthPercent: 10,
+            fullnessLevel: 90,
+            affectionLevel: 70,
+            health: 100,
+            happiness: 80,
+            hasFever: false,
+            hasLongNails: false,
+            adoptedAt: Date.now(),
+            adoptedDate: todayStr,
+            adopter: approvedByUser,
+            playTime: { nether: 0, Pooja: 0 },
+            bondingScores: {
+                nether: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 },
+                Pooja: { food: 0, treats: 0, vaccine: 0, grooming: 0, health: 0, hands: 0, feather: 0, yarn: 0, laser: 0, toys: 0, playTime: 0, total: 0 }
+            },
+            lastHandsPlay: { nether: 0, Pooja: 0 }
+        };
         data.catRetireRequest = null;
 
         data.activityLogs.unshift({
@@ -614,28 +675,53 @@ class AppStorage {
             userId: approvedByUser,
             userName: data.users[approvedByUser]?.name || approvedByUser,
             actionTitle: 'ส่งน้องแมวเข้าคอลเล็กชัน 🏛️✨',
-            detail: `น้องแมว '${catToArchive.name}' ครบกำหนด 6 เดือน ได้รับการส่งเข้าคอลเล็กชันแห่งความทรงจำ พร้อมเปิดรับเลี้ยงน้องแมวตัวใหม่`,
+            detail: `น้องแมว '${catToArchive.name}' เติบโตครบ 1 เดือน ได้รับการส่งเข้าคอลเล็กชันแห่งความทรงจำ และรับเลี้ยงลูกแมวปริศนาตัวใหม่เรียบร้อยแล้ว`,
             timestamp: new Date().toISOString()
         });
 
         this.saveLocalData(data);
-        return catToArchive;
+        return { success: true, cat: catToArchive, newCat: data.cat };
     }
 
-    // Crossbreed Two Cats from Collection
-    breedCats(catAId, catBId, babyName, userId) {
+    // Crossbreed Two Cats from Collection (Costs 2,000 Points)
+    breedCats(catAId, catBId, arg3, arg4) {
         const data = this.getLocalData();
         if (!data.catCollection) data.catCollection = [];
 
+        // Flexible argument handling: breedCats(catA, catB, userId) or breedCats(catA, catB, babyName, userId)
+        let userId = 'nether';
+        let babyName = null;
+        if (typeof arg3 === 'string' && (['nether', 'Pooja'].includes(arg3) || !arg4)) {
+            userId = arg3;
+            babyName = arg4 || null;
+        } else {
+            babyName = arg3;
+            userId = arg4 || 'nether';
+        }
+
+        const user = data.users[userId];
+        const BREED_COST = 2000;
+        if (!user || (user.points || 0) < BREED_COST) {
+            return {
+                success: false,
+                message: `คะแนนไม่เพียงพอสำหรับการผสมพันธุ์ (ต้องใช้ ${BREED_COST.toLocaleString()} แต้ม แต่คุณมี ${(user?.points || 0).toLocaleString()} แต้ม)`
+            };
+        }
+
         const parentA = data.catCollection.find(c => c.id === catAId);
         const parentB = data.catCollection.find(c => c.id === catBId);
-        if (!parentA || !parentB) return null;
+        if (!parentA || !parentB) {
+            return { success: false, message: 'ไม่พบข้อมูลพ่อแม่พันธุ์ในคอลเล็กชัน' };
+        }
 
         const breedA = CAT_BREEDS.find(b => b.id === (parentA.finalBreed || parentA.breed)) || CAT_BREEDS[0];
         const breedB = CAT_BREEDS.find(b => b.id === (parentB.finalBreed || parentB.breed)) || CAT_BREEDS[1];
 
         const hybridName = babyName && babyName.trim() ? babyName.trim() : `ลูกผสม ${parentA.name} x ${parentB.name}`;
         const hybridBreedName = `สายพันธุ์ผสม (${breedA.name.split(' ')[0]} x ${breedB.name.split(' ')[0]})`;
+
+        // Deduct exactly 2,000 points
+        user.points -= BREED_COST;
 
         const newHybrid = {
             id: 'hybrid_' + Date.now(),
@@ -645,13 +731,14 @@ class AppStorage {
             parentB: { id: parentB.id, name: parentB.name, breed: breedB.name },
             breed: breedA.id,
             finalBreed: breedA.id,
+            breedName: hybridBreedName,
             hybridBreedName: hybridBreedName,
             bodyColor: breedA.bodyColor,
             bellyColor: breedB.bellyColor,
             pointColor: breedB.pointColor,
             eyeColor: breedA.eyeColor,
             eyeColorRight: breedB.eyeColor,
-            growthDay: 180,
+            growthDay: 30,
             health: 100,
             fullnessLevel: 100,
             affectionLevel: 100,
@@ -664,14 +751,14 @@ class AppStorage {
         data.activityLogs.unshift({
             id: 'log_' + Date.now(),
             userId: userId,
-            userName: data.users[userId]?.name || userId,
-            actionTitle: 'ผสมพันธุ์แมวในคอลเล็กชันสำเร็จ! 🧬🐾',
-            detail: `กำเนิดลูกแมวสายพันธุ์ผสมใหม่ '${hybridName}' จากคู่พ่อแม่ ${parentA.name} และ ${parentB.name}!`,
+            userName: user.name || userId,
+            actionTitle: 'ผสมพันธุ์ลูกแมวไฮบริดสำเร็จ! 🧬🐾',
+            detail: `ใช้ 2,000 แต้ม ผสมพันธุ์กำเนิดลูกแมวไฮบริด '${hybridName}' จากคู่พ่อแม่ ${parentA.name} และ ${parentB.name}!`,
             timestamp: new Date().toISOString()
         });
 
         this.saveLocalData(data);
-        return newHybrid;
+        return { success: true, newCat: newHybrid, remainingPoints: user.points };
     }
 
     // Archive Meal History (Requirement 11)
@@ -731,7 +818,11 @@ class AppStorage {
             this.broadcastChannel.postMessage({ type: 'PRESENCE_UPDATED' });
         }
 
-        this.notifyListeners(data);
+        // Do NOT call notifyListeners here: presence heartbeats only update presence badges
+        // Calling notifyListeners here caused full DOM re-renders every 5s and browser freezing!
+        if (window.loveTreeApp && typeof window.loveTreeApp.updatePresenceUI === 'function') {
+            window.loveTreeApp.updatePresenceUI();
+        }
 
         if (this.isFirebaseConnected && this.db) {
             try {
@@ -742,8 +833,8 @@ class AppStorage {
                             lastActive: new Date().toISOString()
                         }
                     }
-                }, { merge: true }).catch(() => {});
-            } catch (e) {}
+                }, { merge: true }).catch(() => { });
+            } catch (e) { }
         }
     }
 
@@ -894,7 +985,7 @@ class AppStorage {
                     type: 'PARTNER_NOTIFICATION',
                     payload: enrichedPayload
                 });
-            } catch (e) {}
+            } catch (e) { }
         }
 
         // Store lastNotification on local document directly without triggering redundant save cascades
@@ -905,7 +996,7 @@ class AppStorage {
                 parsed.lastNotification = enrichedPayload;
                 localStorage.setItem(this.storageKey, JSON.stringify(parsed));
             }
-        } catch (e) {}
+        } catch (e) { }
 
         // Immediate Firestore sync to push real-time notification to partner across all browsers
         if (this.isFirebaseConnected && this.db) {
@@ -982,7 +1073,7 @@ class AppStorage {
     getFirebaseConfig() {
         const raw = localStorage.getItem(this.firebaseConfigKey);
         if (raw) {
-            try { return JSON.parse(raw); } catch (e) {}
+            try { return JSON.parse(raw); } catch (e) { }
         }
         return (typeof DEFAULT_FIREBASE_CONFIG !== 'undefined') ? DEFAULT_FIREBASE_CONFIG : null;
     }
@@ -1085,11 +1176,19 @@ class AppStorage {
                             } else {
                                 const mergedCompletedBy = Array.from(new Set([...(rq.completedBy || []), ...(lq.completedBy || [])]));
                                 const mergedAnswers = { ...(rq.answers || {}), ...(lq.answers || {}) };
+                                const mergedAttempts = { ...(rq.userAttempts || {}), ...(lq.userAttempts || {}) };
+                                const mergedWrongPicks = { ...(rq.wrongPicks || {}), ...(lq.wrongPicks || {}) };
+                                const mergedPoints = { ...(rq.pointsAwarded || {}), ...(lq.pointsAwarded || {}) };
+                                const mergedPartnerAnswer = rq.partnerAnswered || lq.partnerAnswered;
                                 quizMap.set(lq.id, {
                                     ...rq,
                                     ...lq,
                                     completedBy: mergedCompletedBy,
                                     answers: mergedAnswers,
+                                    userAttempts: mergedAttempts,
+                                    wrongPicks: mergedWrongPicks,
+                                    pointsAwarded: mergedPoints,
+                                    partnerAnswered: mergedPartnerAnswer,
                                     answeredBy: rq.answeredBy || lq.answeredBy
                                 });
                             }
@@ -1193,6 +1292,10 @@ class AppStorage {
                                 playTime: {
                                     nether: Math.max(rCat.playTime?.nether || 0, lCat.playTime?.nether || 0),
                                     Pooja: Math.max(rCat.playTime?.Pooja || 0, lCat.playTime?.Pooja || 0)
+                                },
+                                lastHandsPlay: {
+                                    nether: Math.max(rCat.lastHandsPlay?.nether || 0, lCat.lastHandsPlay?.nether || 0),
+                                    Pooja: Math.max(rCat.lastHandsPlay?.Pooja || 0, lCat.lastHandsPlay?.Pooja || 0)
                                 },
                                 bondingScores: {
                                     nether: {
@@ -1335,6 +1438,11 @@ class AppStorage {
                         const localHadNewData = (
                             JSON.stringify(merged.completedQuests) !== JSON.stringify(cleanRemote.completedQuests) ||
                             JSON.stringify(merged.dailyCare) !== JSON.stringify(cleanRemote.dailyCare) ||
+                            JSON.stringify(merged.quizzes) !== JSON.stringify(cleanRemote.quizzes) ||
+                            JSON.stringify(merged.postits) !== JSON.stringify(cleanRemote.postits) ||
+                            JSON.stringify(merged.luckyOrbClaims || {}) !== JSON.stringify(cleanRemote.luckyOrbClaims || {}) ||
+                            JSON.stringify(merged.cat?.lastHandsPlay || {}) !== JSON.stringify(cleanRemote.cat?.lastHandsPlay || {}) ||
+                            JSON.stringify(merged.catCollection || []) !== JSON.stringify(cleanRemote.catCollection || []) ||
                             (merged.users?.nether?.points || 0) > (cleanRemote.users?.nether?.points || 0) ||
                             (merged.users?.Pooja?.points || 0) > (cleanRemote.users?.Pooja?.points || 0) ||
                             (!cleanRemote.cat && merged.cat)
@@ -1346,7 +1454,7 @@ class AppStorage {
                         localStorage.setItem(this.storageKey, JSON.stringify(merged));
                         try {
                             localStorage.setItem('lovetree_couple_data_backup', JSON.stringify(merged));
-                        } catch (e) {}
+                        } catch (e) { }
 
                         this.notifyListeners(merged);
 

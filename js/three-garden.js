@@ -1945,6 +1945,19 @@ class Garden3D {
             if (p.update) p.update();
             if (p.life <= 0) {
                 this.scene.remove(p.mesh);
+                if (p.mesh) {
+                    if (p.mesh.geometry && typeof p.mesh.geometry.dispose === 'function') {
+                        p.mesh.geometry.dispose();
+                    }
+                    if (p.mesh.material) {
+                        if (p.mesh.material.map && typeof p.mesh.material.map.dispose === 'function') {
+                            p.mesh.material.map.dispose();
+                        }
+                        if (typeof p.mesh.material.dispose === 'function') {
+                            p.mesh.material.dispose();
+                        }
+                    }
+                }
                 this.particleSystems.splice(i, 1);
             }
         }

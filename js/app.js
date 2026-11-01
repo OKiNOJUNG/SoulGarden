@@ -656,7 +656,7 @@ class AppController {
             } else {
                 const bInfo = CAT_BREEDS[cat.breed] || { name: 'แมวความรัก' };
                 catNameEl.innerHTML = `${cat.name} <span>🐾</span> <small style="font-size: 11px; color: var(--accent-coral); font-weight: 700;">(${bInfo.name})</small>`;
-                if (yearPillEl) yearPillEl.innerText = cat.growthDay >= 180 ? 'ครบ 6 เดือน (พร้อมเกษียณ)' : `วันที่ ${cat.growthDay}/180`;
+                if (yearPillEl) yearPillEl.innerText = cat.growthDay >= 30 ? 'ครบ 1 เดือน (พร้อมเข้าคอลเล็กชัน)' : `วันที่ ${cat.growthDay}/30`;
             }
         }
 
@@ -1362,7 +1362,21 @@ class AppController {
             }
         }
 
-        if (data.quizzes.length === 0) {
+        // Archive any past-date quizzes to pastQuizzes
+        let activeQuizzes = (data.quizzes || []);
+        if (activeQuizzes.some(q => q.date && q.date !== todayStr)) {
+            if (!data.pastQuizzes) data.pastQuizzes = [];
+            activeQuizzes.forEach(q => {
+                if (q.date && q.date !== todayStr && !data.pastQuizzes.some(pq => pq.id === q.id)) {
+                    data.pastQuizzes.unshift(q);
+                }
+            });
+            activeQuizzes = activeQuizzes.filter(q => !q.date || q.date === todayStr);
+            data.quizzes = activeQuizzes;
+            window.appStorage.saveLocalData(data);
+        }
+
+        if (activeQuizzes.length === 0) {
             container.innerHTML = `
                 <div style="background: var(--bg-surface); padding: 25px; border-radius: var(--radius-lg); text-align: center; border: 1px solid var(--border-light);">
                     <div style="font-size: 36px; margin-bottom: 8px;">🎯</div>
@@ -1372,7 +1386,7 @@ class AppController {
             return;
         }
 
-        data.quizzes.forEach(q => {
+        activeQuizzes.forEach(q => {
             const isCreatedByMe = q.creator === this.currentUser;
             const hasAnswered = q.completedBy && q.completedBy.includes(this.currentUser);
             const userAttempts = (q.userAttempts && q.userAttempts[this.currentUser]) || 0;
@@ -1485,8 +1499,11 @@ class AppController {
             const optBtns = card.querySelectorAll('.quiz-opt-btn');
             optBtns.forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    const optIdx = parseInt(e.target.getAttribute('data-opt-idx'), 10);
-                    this.answerQuiz(q, optIdx, e.target);
+                    const btnEl = e.target.closest('.quiz-opt-btn') || btn;
+                    const optIdx = parseInt(btnEl.getAttribute('data-opt-idx'), 10);
+                    if (!isNaN(optIdx)) {
+                        this.answerQuiz(q, optIdx, btnEl);
+                    }
                 });
             });
 
@@ -1506,7 +1523,7 @@ class AppController {
         }
 
         if (list.length === 0) {
-            container.innerHTML = `<div style="grid-column: span 2; text-align: center; color: var(--text-muted); padding: 30px;">ยังไม่มีบันทึกลูกแก้วนำโชค (เปิดให้เก็บเกี่ยวทุกวันที่ 1 และ 16 ของเดือน)</div>`;
+            container.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 30px;">ยังไม่มีบันทึกลูกแก้วนำโชค (เปิดให้รับในวันหวยออก วันที่ 1 และ 16 ของเดือน)</div>`;
             return;
         }
 
@@ -1523,22 +1540,22 @@ class AppController {
 
             card.innerHTML = `
                 <div class="postit-pin"></div>
-                <div class="lucky-numbers-badge-row">
-                    <span class="lucky-numbers-title">🔮 3 เลขนำโชค:</span>
-                    <div class="lucky-orbs-inline">
+                <div class="postit-card-topbar">
+                    <span class="postit-author-badge">🐾 โดย ${p.author}</span>
+                    <span class="postit-date-text">📅 ${p.date}</span>
+                </div>
+                <h4 class="postit-title-text">${p.title || 'คำอวยพรลูกแก้วให้โชค'}</h4>
+                <div class="postit-body-text">${p.content || ''}</div>
+                <div class="postit-lucky-box">
+                    <div class="postit-lucky-box-title">🔮 3 เลขนำโชคประจำงวด:</div>
+                    <div class="postit-lucky-pills-wrap">
                         ${orbsPillHtml}
                     </div>
                 </div>
-                <div class="postit-header">${p.title}</div>
-                <div class="postit-content">${p.content}</div>
-                <div style="margin: 10px 0 6px;">
+                <div style="margin-top: auto; padding-top: 6px;">
                     <button type="button" class="postit-blessing-btn" data-postit-id="${p.id}">
-                        ✨ ดูพร & สถิติหวย 10 ปี
+                        ✨ ดูสถิติสลาก & พรนำโชค
                     </button>
-                </div>
-                <div class="postit-footer">
-                    <span>${p.date}</span>
-                    <span>โดย ${p.author}</span>
                 </div>
             `;
 
@@ -2960,13 +2977,16 @@ class AppController {
 
         window.soundManager.playSuccess();
         this.closeModal('modalNewQuiz');
+        const newQuizForm = document.getElementById('newQuizForm');
+        if (newQuizForm) newQuizForm.reset();
         this.updateHeaderPoints();
+        this.renderQuizView();
         this.renderQuestsView();
         if (typeof this.updateNavBadges === 'function') this.updateNavBadges();
         this.showToast('ส่งคำถามวันนี้ให้แฟนสำเร็จ (+30 แต้ม)! 🎯');
     }
 
-    // 11. Lucky Bell Harvest (Only 1st & 16th of month)
+    // 11. Lucky Bell Harvest (Only on Thai Lottery Draw Days: 1st & 16th, Max 1 per person per draw)
     checkAndOpenHarvestModal() {
         const data = window.appStorage.getLocalData();
         if (!data.cat) {
@@ -2975,15 +2995,31 @@ class AppController {
         }
 
         const today = new Date();
-        const dayOfMonth = today.getDate(); // 1 to 31
+        const isDrawDay = (typeof isThaiLotteryDrawDay === 'function')
+            ? isThaiLotteryDrawDay(today)
+            : (today.getDate() === 1 || today.getDate() === 16);
 
-        // Check date requirement: 1st or 16th
-        if (dayOfMonth !== 1 && dayOfMonth !== 16) {
+        if (!isDrawDay) {
             Swal.fire({
-                title: 'ยังไม่ถึงวันเปิดรับโชค 🔔',
-                text: `ลูกแก้วให้โชคจะเปิดให้เก็บเกี่ยวใน "วันที่ 1" และ "วันที่ 16" ของทุกเดือนเท่านั้น (วันนี้วันที่ ${dayOfMonth}) รออีกนิดนะ! ✨`,
+                title: 'ยังไม่ถึงวันสลากออก 🔔',
+                text: `ลูกแก้วให้โชคจะเปิดให้รับใน "วันสลากกินแบ่งรัฐบาลออก" (วันที่ 1 และ 16 ของทุกเดือน) เท่านั้น วันนี้วันที่ ${today.getDate()} ยังไม่ถึงรอบนะจ๊ะ! ✨`,
                 icon: 'info',
                 confirmButtonText: 'รับทราบ'
+            });
+            return;
+        }
+
+        const todayStr = today.toISOString().split('T')[0];
+        const me = data.users[this.currentUser] || { name: this.currentUser };
+        const alreadyClaimed = (data.luckyOrbClaims && data.luckyOrbClaims[todayStr] && data.luckyOrbClaims[todayStr][this.currentUser])
+            || (data.postits || []).some(p => p.author === this.currentUser && p.date === todayStr);
+
+        if (alreadyClaimed) {
+            Swal.fire({
+                title: 'รับลูกแก้วให้โชคไปแล้ว 🔮',
+                text: `คุณ (${me.name}) ได้รับลูกแก้วให้โชคในงวดนี้ไปแล้ว สามารถรับได้เพียงคนละ 1 ครั้งต่องวดเท่านั้นนะจ๊ะ ไว้รอลุ้นงวดถัดไปพร้อมกันนะ! ✨`,
+                icon: 'info',
+                confirmButtonText: 'ตกลง'
             });
             return;
         }
@@ -2997,6 +3033,45 @@ class AppController {
 
     submitHarvestPostit(title, message) {
         const data = window.appStorage.getLocalData();
+
+        // Enforcement: Only Thai lottery draw days (1 & 16 or designated draw day)
+        const today = new Date();
+        const isDrawDay = (typeof isThaiLotteryDrawDay === 'function')
+            ? isThaiLotteryDrawDay(today)
+            : ([1, 16].includes(today.getDate()));
+
+        if (!isDrawDay) {
+            Swal.fire({
+                title: 'ยังไม่ใช่วันหวยออกนะจ๊ะ 🔮',
+                text: 'ลูกแก้วให้โชค 3 ตัวตรงและสถิติหวย 10 ปี จะเปิดให้รับเฉพาะทุกวันที่สลากกินแบ่งรัฐบาลออก (วันที่ 1 และ 16 ของเดือน หรือวันออกสลากตามประกาศ) เท่านั้นนะ!',
+                icon: 'warning',
+                confirmButtonText: 'รับทราบ'
+            });
+            return;
+        }
+
+        // Enforcement: Limit 1 claim per person per draw
+        const todayStr = today.toISOString().split('T')[0];
+        if (!data.luckyOrbClaims) data.luckyOrbClaims = {};
+        if (!data.luckyOrbClaims[todayStr]) data.luckyOrbClaims[todayStr] = {};
+
+        const alreadyClaimedInMap = !!data.luckyOrbClaims[todayStr][this.currentUser];
+        const alreadyClaimedInPostits = (data.postits || []).some(p => p.author === this.currentUser && p.date === todayStr);
+
+        if (alreadyClaimedInMap || alreadyClaimedInPostits) {
+            const me = data.users[this.currentUser] || { name: this.currentUser };
+            Swal.fire({
+                title: 'คุณรับลูกแก้วงวดนี้ไปแล้ว 🔮',
+                text: `คุณ (${me.name}) ได้รับลูกแก้วให้โชคในงวดนี้ไปแล้ว สามารถรับได้เพียงคนละ 1 ครั้งต่องวดเท่านั้นนะจ๊ะ ไว้รอลุ้นงวดถัดไปพร้อมกันนะ! ✨`,
+                icon: 'info',
+                confirmButtonText: 'ตกลง'
+            });
+            return;
+        }
+
+        // Record the claim
+        data.luckyOrbClaims[todayStr][this.currentUser] = true;
+
         const breedId = data.cat ? data.cat.breed : 'orange_tabby';
         const breed = CAT_BREEDS.find(b => b.id === breedId) || CAT_BREEDS[0];
 
@@ -3019,7 +3094,7 @@ class AppController {
             month: new Date().toLocaleDateString('th-TH', { month: 'long' }),
             title: title,
             content: message,
-            date: new Date().toISOString().split('T')[0]
+            date: todayStr
         };
 
         data.postits.unshift(newPostit);
@@ -3089,20 +3164,51 @@ class AppController {
 
         const lotteryRef = postit.lotteryRef || (typeof getThaiLotteryHistory === 'function' ? getThaiLotteryHistory(postit.date || new Date()) : null);
 
-        let tableRowsHtml = '';
-        if (lotteryRef && lotteryRef.records && lotteryRef.records.length > 0) {
-            tableRowsHtml = lotteryRef.records.map(r => `
+        const renderLotteryRow = (r) => {
+            const yearStr = r.beYear || r.yearBE || '-';
+            const dateStr = r.date || r.drawDate || '';
+            const prize1Str = r.prize1 || r.firstPrize || '-';
+            const last2Str = r.last2 || '-';
+            const front3Str = r.front3 || r.first3 || '-';
+            const back3Str = r.back3 || r.last3 || '-';
+
+            return `
                 <tr>
-                    <td style="font-weight: 700; color: #1565C0;">${r.beYear}</td>
-                    <td class="highlight-draw" style="font-weight: 800; font-family: monospace; font-size: 12px;">${r.prize1}</td>
-                    <td style="font-weight: 800; color: #2E7D32; font-family: monospace;">${r.last2}</td>
-                    <td style="font-size: 10px; color: #555;">${r.front3 || '-'}</td>
-                    <td style="font-size: 10px; color: #555;">${r.back3 || '-'}</td>
+                    <td style="font-weight: 700; color: #1565C0;">
+                        ${yearStr}
+                        ${dateStr ? `<br><span style="font-size: 10px; color: #777; font-weight: normal;">${dateStr}</span>` : ''}
+                    </td>
+                    <td class="highlight-draw" style="font-weight: 800; font-family: monospace; font-size: 12.5px; color: #D32F2F;">
+                        ${prize1Str}
+                    </td>
+                    <td style="font-weight: 800; color: #2E7D32; font-family: monospace; font-size: 13px;">
+                        ${last2Str}
+                    </td>
+                    <td style="font-size: 11px; color: #333; font-family: monospace;">
+                        ${front3Str}
+                    </td>
+                    <td style="font-size: 11px; color: #333; font-family: monospace;">
+                        ${back3Str}
+                    </td>
                 </tr>
-            `).join('');
-        } else {
-            tableRowsHtml = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 12px;">ไม่มีข้อมูลสถิติสลากในงวดนี้</td></tr>`;
-        }
+            `;
+        };
+
+        const consecutiveRecords = (lotteryRef && lotteryRef.consecutiveRecords && lotteryRef.consecutiveRecords.length > 0)
+            ? lotteryRef.consecutiveRecords
+            : ((typeof THAI_LOTTERY_CONSECUTIVE_DRAWS !== 'undefined') ? THAI_LOTTERY_CONSECUTIVE_DRAWS : []);
+
+        const historicalRecords = (lotteryRef && lotteryRef.records && lotteryRef.records.length > 0)
+            ? lotteryRef.records
+            : [];
+
+        const consecutiveRowsHtml = consecutiveRecords.length > 0
+            ? consecutiveRecords.map(renderLotteryRow).join('')
+            : `<tr><td colspan="5" style="text-align: center; color: #888; padding: 12px;">ไม่มีข้อมูลสถิติงวดก่อนหน้า</td></tr>`;
+
+        const historicalRowsHtml = historicalRecords.length > 0
+            ? historicalRecords.map(renderLotteryRow).join('')
+            : `<tr><td colspan="5" style="text-align: center; color: #888; padding: 12px;">ไม่มีข้อมูลสถิติสลากในงวดนี้</td></tr>`;
 
         card.innerHTML = `
             <div class="blessing-halo-top"></div>
@@ -3134,9 +3240,13 @@ class AppController {
                 <div class="lottery-history-header" id="blessingLotteryToggle">
                     <h4>
                         <span>📊</span>
-                        <span>สถิติผลสลากกินแบ่งรัฐบาลย้อนหลัง 10 ปี (${lotteryRef ? lotteryRef.drawTitle : 'งวดประจำวันที่ 1 และ 16'})</span>
+                        <span>สถิติผลสลากกินแบ่งรัฐบาล (${lotteryRef ? lotteryRef.drawTitle : 'ย้อนหลังจริงและตรงงวด 10 ปี'})</span>
                     </h4>
                     <span class="lottery-toggle-icon">▼</span>
+                </div>
+                <div class="lottery-tabs-container">
+                    <button type="button" class="lottery-tab-btn active" id="tabConsecutiveBtn">งวดก่อนหน้าย้อนหลังจริง (12 งวดล่าสุด)</button>
+                    <button type="button" class="lottery-tab-btn" id="tab10YearBtn">สถิติตรงงวดนี้ย้อนหลัง 10 ปี</button>
                 </div>
                 <div class="lottery-table-wrap">
                     <table class="lottery-history-table">
@@ -3149,8 +3259,8 @@ class AppController {
                                 <th>3 ตัวท้าย</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            ${tableRowsHtml}
+                        <tbody id="blessingLotteryTableBody">
+                            ${consecutiveRowsHtml}
                         </tbody>
                     </table>
                 </div>
@@ -3173,6 +3283,27 @@ class AppController {
             });
         }
 
+        // Tab switching between Consecutive Draws and 10-Year Draws
+        const tabConsecutiveBtn = card.querySelector('#tabConsecutiveBtn');
+        const tab10YearBtn = card.querySelector('#tab10YearBtn');
+        const tableBody = card.querySelector('#blessingLotteryTableBody');
+
+        if (tabConsecutiveBtn && tab10YearBtn && tableBody) {
+            tabConsecutiveBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                tabConsecutiveBtn.classList.add('active');
+                tab10YearBtn.classList.remove('active');
+                tableBody.innerHTML = consecutiveRowsHtml;
+            });
+
+            tab10YearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                tab10YearBtn.classList.add('active');
+                tabConsecutiveBtn.classList.remove('active');
+                tableBody.innerHTML = historicalRowsHtml;
+            });
+        }
+
         // Close actions
         const closeOverlay = () => {
             overlay.classList.add('fade-out');
@@ -3188,6 +3319,14 @@ class AppController {
                 e.stopPropagation();
                 closeOverlay();
             });
+        }
+
+        const fixedCloseBtn = document.getElementById('blessingFixedCloseBtn');
+        if (fixedCloseBtn) {
+            fixedCloseBtn.onclick = (e) => {
+                e.stopPropagation();
+                closeOverlay();
+            };
         }
 
         overlay.onclick = (e) => {
@@ -3212,6 +3351,7 @@ class AppController {
         requestAnimationFrame(() => {
             overlay.classList.add('active');
         });
+    }
     }
 
     selectCatBreed(breedId) {
@@ -3642,8 +3782,11 @@ class AppController {
         if (grid) {
             grid.innerHTML = '';
 
-            // Check 1-hour cooldown for hands / chin scratch
-            const lastHandsTime = (data.cat && data.cat.lastHandsPlay && data.cat.lastHandsPlay[this.currentUser]) || 0;
+            // Check 1-hour cooldown for hands / chin scratch (Checking both data.cat and persistent localStorage fail-safe)
+            const localHandsKey = 'lovetree_last_hands_' + this.currentUser;
+            const localLastHands = parseInt(localStorage.getItem(localHandsKey) || '0', 10);
+            const catLastHands = (data.cat && data.cat.lastHandsPlay && data.cat.lastHandsPlay[this.currentUser]) || 0;
+            const lastHandsTime = Math.max(catLastHands, localLastHands);
             const elapsedHands = Date.now() - lastHandsTime;
             const cooldownMs = 60 * 60 * 1000;
             const isHandsReady = elapsedHands >= cooldownMs;
@@ -3665,6 +3808,10 @@ class AppController {
                 item.className = 'toy-select-card';
                 item.style.cssText = 'padding: 8px 10px; border: 1.5px solid var(--border-light); border-radius: 8px; cursor: pointer; background: #fff; display: flex; align-items: center; gap: 8px; font-size: 11.5px; transition: all 0.2s;';
                 
+                if (t.id === 'hands' && !isHandsReady) {
+                    item.style.opacity = '0.7';
+                }
+
                 const countColor = t.isAction ? (isHandsReady ? '#2E7D32' : '#E65100') : 'var(--text-secondary)';
                 item.innerHTML = `
                     <span style="font-size: 20px;">${t.icon}</span>
@@ -3676,6 +3823,16 @@ class AppController {
 
                 item.addEventListener('click', () => {
                     if (t.id === 'hands') {
+                        if (!isHandsReady) {
+                            window.soundManager.playError();
+                            Swal.fire({
+                                title: 'เกาคางได้ 1 ชั่วโมงต่อครั้ง ⏳',
+                                text: `น้องแมวเพิ่งได้รับการเกาคางไป สามารถเกาคางได้อีกครั้งในอีก ${minsLeft} นาทีค้าบ`,
+                                icon: 'info',
+                                confirmButtonText: 'รับทราบ'
+                            });
+                            return;
+                        }
                         this.playHandsImmediate();
                         return;
                     }
@@ -3713,11 +3870,19 @@ class AppController {
     }
 
     playHandsImmediate() {
-        const data = window.appStorage.getLocalData();
-        if (!data.cat) return;
+        if (this._isHandsPlaying) return;
+        this._isHandsPlaying = true;
 
-        if (!data.cat.lastHandsPlay) data.cat.lastHandsPlay = {};
-        const lastTime = data.cat.lastHandsPlay[this.currentUser] || 0;
+        const data = window.appStorage.getLocalData();
+        if (!data.cat) {
+            this._isHandsPlaying = false;
+            return;
+        }
+
+        const localHandsKey = 'lovetree_last_hands_' + this.currentUser;
+        const localLastHands = parseInt(localStorage.getItem(localHandsKey) || '0', 10);
+        const catLastHands = (data.cat && data.cat.lastHandsPlay && data.cat.lastHandsPlay[this.currentUser]) || 0;
+        const lastTime = Math.max(catLastHands, localLastHands);
         const elapsed = Date.now() - lastTime;
         const cooldownMs = 60 * 60 * 1000;
 
@@ -3730,11 +3895,17 @@ class AppController {
                 icon: 'info',
                 confirmButtonText: 'รับทราบ'
             });
+            this._isHandsPlaying = false;
             return;
         }
 
+        // Lock in current timestamp both in cat data and persistent localStorage
+        const now = Date.now();
+        if (!data.cat.lastHandsPlay) data.cat.lastHandsPlay = {};
+        data.cat.lastHandsPlay[this.currentUser] = now;
+        localStorage.setItem(localHandsKey, String(now));
+
         // Grant 25 points immediately!
-        data.cat.lastHandsPlay[this.currentUser] = Date.now();
         data.users[this.currentUser].points += 25;
         data.cat.affectionLevel = Math.min(100, (data.cat.affectionLevel || 50) + 15);
         data.cat.happiness = Math.min(100, (data.cat.happiness || 50) + 10);
@@ -3812,6 +3983,8 @@ class AppController {
             timer: 2300,
             showConfirmButton: false
         });
+
+        this._isHandsPlaying = false;
 
         // Refresh play modal to reflect cooldown status
         this.openCatPlayModal();
@@ -4271,7 +4444,7 @@ class AppController {
         // Adoption hero description
         const adoptionHeroDesc = document.querySelector('#adoptionHeroCard .adoption-hero-desc');
         if (adoptionHeroDesc) {
-            adoptionHeroDesc.innerHTML = `ยินดีต้อนรับ ${netherFull} & ${poojaFull}! ทั้งสองมีแต้มเริ่มต้นคนละ <strong>300 แต้ม ⭐</strong> มาร่วมสุ่มรับเลี้ยงลูกแมวน้อยปริศนาที่ไม่รู้ว่าเป็นสายพันธุ์อะไร เมื่อร่วมกันดูแลจนครบ <strong>2 เดือน (60 วัน)</strong> จะเฉลยสายพันธุ์ และเมื่อครบ <strong>6 เดือน (180 วัน)</strong> สามารถร่วมกันเก็บเข้าคอลเล็กชันเพื่อเลี้ยงตัวใหม่ได้!`;
+            adoptionHeroDesc.innerHTML = `ยินดีต้อนรับ ${netherFull} & ${poojaFull}! ทั้งสองมีแต้มเริ่มต้นคนละ <strong>300 แต้ม ⭐</strong> มาร่วมสุ่มรับเลี้ยงลูกแมวน้อยปริศนาที่ไม่รู้ว่าเป็นสายพันธุ์อะไร เมื่อร่วมกันดูแลจนครบ <strong>2 เดือน (60 วัน)</strong> จะเฉลยสายพันธุ์ และเมื่อครบ <strong>1 เดือน (30 วัน)</strong> สามารถร่วมกันเก็บเข้าคอลเล็กชันเพื่อเลี้ยงตัวใหม่ได้!`;
         }
 
         // Re-render currently viewed dynamic lists
@@ -4510,27 +4683,27 @@ class AppController {
             return;
         }
 
-        const catAgeDays = Math.max(1, Math.floor((Date.now() - (data.cat.adoptedAt || Date.now())) / 86400000));
+        const catAgeDays = Math.max(1, data.cat.growthDay || Math.floor((Date.now() - (data.cat.adoptedAt || Date.now())) / 86400000));
         const ageBadge = document.getElementById('currentCatAgeBadge');
         if (ageBadge) ageBadge.innerText = `อายุ ${catAgeDays} วัน`;
 
         const noticeEl = document.getElementById('currentCatRetireEligibilityNotice');
         const actionBox = document.getElementById('retireCatActionBox');
 
-        if (catAgeDays < 180) {
+        if (catAgeDays < 30) {
             if (noticeEl) {
-                noticeEl.innerHTML = `ต้องเลี้ยงให้โตเต็มวัยครบ <strong>6 เดือน (180 วัน)</strong> เพื่อปลดล็อคการเก็บเข้าคอลเล็กชันและเลี้ยงตัวใหม่ (ปัจจุบันอายุ: <strong>${catAgeDays} วัน</strong>, เหลืออีก ${180 - catAgeDays} วัน) ⏳`;
+                noticeEl.innerHTML = `ต้องเลี้ยงให้เติบโตครบ <strong>1 เดือน (30 วัน)</strong> เพื่อปลดล็อคการเก็บเข้าคอลเล็กชันและเลี้ยงตัวใหม่ (ปัจจุบันอายุ: <strong>${catAgeDays} วัน</strong>, เหลืออีก ${30 - catAgeDays} วัน) ⏳`;
             }
             if (actionBox) {
                 actionBox.innerHTML = `
                     <button class="secondary-btn" disabled style="opacity: 0.6; cursor: not-allowed; width: 100%; font-size: 11.5px;">
-                        🔒 ปลดล็อคเมื่อครบ 6 เดือน (180 วัน)
+                        🔒 ปลดล็อคเมื่อครบ 1 เดือน (30 วัน)
                     </button>
                 `;
             }
         } else {
             if (noticeEl) {
-                noticeEl.innerHTML = `🎉 น้องแมวโตเต็มวัยครบ 6 เดือนแล้ว! สามารถเก็บเข้าคอลเล็กชันแห่งความทรงจำและรับเลี้ยงตัวใหม่ได้ (ต้องได้รับความเห็นชอบจากทั้งสองฝ่าย)`;
+                noticeEl.innerHTML = `🎉 น้องแมวเติบโตครบ 1 เดือนแล้ว! สามารถเก็บเข้าคอลเล็กชันแห่งความทรงจำและรับเลี้ยงตัวใหม่ได้ (ต้องได้รับความเห็นชอบจากทั้งสองฝ่าย)`;
             }
 
             const req = data.catRetireRequest;
@@ -4572,7 +4745,7 @@ class AppController {
         if (grid) {
             grid.innerHTML = '';
             if (collection.length === 0) {
-                grid.innerHTML = `<div style="grid-column: span 2; text-align: center; color: var(--text-muted); padding: 16px; font-size: 11.5px;">ยังไม่มีแมวในคอลเล็กชัน เลี้ยงให้ครบ 6 เดือนเพื่อบันทึกน้องตัวแรกเข้าสู่คลัง!</div>`;
+                grid.innerHTML = `<div style="grid-column: span 2; text-align: center; color: var(--text-muted); padding: 16px; font-size: 11.5px;">ยังไม่มีแมวในคอลเล็กชัน เลี้ยงให้ครบ 1 เดือนเพื่อบันทึกน้องตัวแรกเข้าสู่คลัง!</div>`;
             } else {
                 collection.forEach(c => {
                     const card = document.createElement('div');
@@ -4631,7 +4804,7 @@ class AppController {
 
     handleRetireCatApproval() {
         const res = window.appStorage.retireCatToCollection(this.currentUser);
-        if (res.success) {
+        if (res && res.success) {
             window.soundManager.playReward();
             if (typeof confetti === 'function') confetti({ particleCount: 80, spread: 60 });
 
@@ -4648,7 +4821,7 @@ class AppController {
                 this.garden3D.loadCatModel(refreshedData.cat.breed || 'mystery_kitten');
             }
         } else {
-            Swal.fire('ข้อผิดพลาด', res.message, 'error');
+            Swal.fire('ข้อผิดพลาด', (res && res.message) || 'ไม่สามารถเก็บเข้าคอลเล็กชันได้', 'error');
         }
     }
 
@@ -4666,20 +4839,32 @@ class AppController {
             return;
         }
 
+        const data = window.appStorage.getLocalData();
+        const userPts = (data.users && data.users[this.currentUser] && data.users[this.currentUser].points) || 0;
+        if (userPts < 2000) {
+            Swal.fire({
+                title: 'คะแนนไม่เพียงพอ 🛒',
+                text: `การผสมพันธุ์ลูกแมวไฮบริดต้องใช้ 2,000 คะแนน (ปัจจุบันคุณมี ${userPts.toLocaleString()} คะแนน)`,
+                icon: 'warning'
+            });
+            return;
+        }
+
         const res = window.appStorage.breedCats(p1, p2, this.currentUser);
-        if (res.success) {
+        if (res && res.success) {
             window.soundManager.playReward();
             if (typeof confetti === 'function') confetti({ particleCount: 70, spread: 55 });
 
             Swal.fire({
                 title: 'กำเนิดลูกแมวไฮบริดสายพันธุ์ใหม่! 🧬🐾',
-                html: `ยินดีด้วย! ได้รับลูกแมวไฮบริด <strong>${res.newCat.name}</strong><br>สายพันธุ์ผสม: <strong style="color: #C2185B;">${res.newCat.breedName}</strong><br>บันทึกเข้าสู่คลังคอลเล็กชันเรียบร้อยแล้ว (+100 แต้ม)`,
+                html: `ยินดีด้วย! ได้รับลูกแมวไฮบริด <strong>${res.newCat.name}</strong><br>สายพันธุ์ผสม: <strong style="color: #C2185B;">${res.newCat.breedName || res.newCat.hybridBreedName}</strong><br>ใช้ 2,000 คะแนน บันทึกเข้าสู่คลังคอลเล็กชันเรียบร้อยแล้ว`,
                 icon: 'success'
             });
 
+            this.updateHeaderPoints();
             this.openCatCollectionModal();
         } else {
-            Swal.fire('ข้อผิดพลาด', res.message, 'error');
+            Swal.fire('ข้อผิดพลาด', (res && res.message) || 'ไม่สามารถผสมพันธุ์ได้', 'error');
         }
     }
 
@@ -4859,6 +5044,20 @@ class AppController {
             if (e.key === 'Escape') {
                 const openModals = document.querySelectorAll('.custom-modal-backdrop.open');
                 openModals.forEach(modal => this.closeModal(modal.id));
+
+                const blessingOverlay = document.getElementById('blessingFullScreenOverlay');
+                if (blessingOverlay && (blessingOverlay.classList.contains('active') || blessingOverlay.style.display !== 'none')) {
+                    blessingOverlay.classList.add('fade-out');
+                    setTimeout(() => {
+                        blessingOverlay.style.display = 'none';
+                        blessingOverlay.classList.remove('active', 'fade-out');
+                    }, 300);
+                }
+
+                const missYouOverlay = document.getElementById('missYouFullScreenOverlay');
+                if (missYouOverlay && missYouOverlay.classList.contains('active')) {
+                    missYouOverlay.classList.remove('active');
+                }
             }
         });
 
